@@ -3,6 +3,7 @@ package scanner
 import (
 	"dsoechting/glox/error"
 	"dsoechting/glox/token"
+	"fmt"
 	"strconv"
 )
 
@@ -106,10 +107,18 @@ func (s *Scanner) scanToken() error {
 		}
 		break
 	case '/':
+		// Single line comments
 		if s.match('/') {
 			for s.peek() != '\n' && !s.isAtEnd() {
 				s.advance()
 			}
+			// Block comments
+		} else if s.match('*') {
+			for !(s.peek() == '*' && s.peekNext() == '/') {
+				s.advance()
+			}
+			s.match('*')
+			s.match('/')
 		} else {
 			s.addTokenSimple(token.SLASH)
 		}
@@ -130,7 +139,8 @@ func (s *Scanner) scanToken() error {
 		} else if isAlphaNumeric(currentRune) {
 			s.identifier()
 		} else {
-			return glox_error.Create(s.line, "Unexpected character.")
+			errorString := fmt.Sprintf("Unexpected character: %c", currentRune)
+			return glox_error.Create(s.line, errorString)
 		}
 	}
 	return nil
