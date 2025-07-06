@@ -2,8 +2,11 @@
 fun main() {
   var temp = 123
   var temp2 = 123.4
-  var temp3 = "some {} string 1234"
+  var temp3 = "some {} string 1234?"
 var a = 1;
+/* This is a block comment
+It can even go multiple lines again?*
+Can it have a random star! */
 while (a < 10) {
   print a;
   a = a + 1;
