@@ -140,7 +140,7 @@ func (s *Scanner) scanToken() error {
 			s.identifier()
 		} else {
 			errorString := fmt.Sprintf("Unexpected character: %c", currentRune)
-			return glox_error.Create(s.line, errorString)
+			return glox_error.Create(s.line, "", errorString)
 		}
 	}
 	return nil
@@ -185,7 +185,7 @@ func (s *Scanner) number() error {
 	}
 	value, err := strconv.ParseFloat(s.source[s.start:s.current], 64)
 	if err != nil {
-		return glox_error.Create(s.line, "Could not parse number")
+		return glox_error.Create(s.line, "", "Could not parse number")
 	}
 	s.addToken(token.NUMBER, value)
 	return nil
@@ -199,7 +199,7 @@ func (s *Scanner) scanString() error {
 		s.advance()
 	}
 	if s.isAtEnd() {
-		return glox_error.Create(s.line, "Unterminated string literal")
+		return glox_error.Create(s.line, "", "Unterminated string literal")
 	}
 	s.advance()
 
