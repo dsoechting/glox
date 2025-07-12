@@ -4,6 +4,8 @@ import (
 	"dsoechting/glox/ast"
 	glox_error "dsoechting/glox/error"
 	"dsoechting/glox/token"
+	"errors"
+	"fmt"
 )
 
 type Expr = ast.Expr
@@ -13,15 +15,12 @@ type LiteralExpr = ast.LiteralExpr
 type GroupingExpr = ast.GroupingExpr
 type TokenType = token.TokenType
 type Token = token.Token
+type GloxError = glox_error.GloxError
 
 type Parser struct {
 	tokens  []token.Token
 	current int
-}
-
-type ParserError struct {
-	line    int
-	message string
+	error   error
 }
 
 func Create(tokens []token.Token) Parser {
@@ -29,6 +28,14 @@ func Create(tokens []token.Token) Parser {
 		tokens:  tokens,
 		current: 0,
 	}
+}
+
+func (p *Parser) Parse() (Expr, error) {
+	expression := p.expression()
+	if p.error != nil {
+		return nil, fmt.Errorf("There were parsing errors: %s\n", p.error)
+	}
+	return expression, nil
 }
 
 func (p *Parser) expression() Expr {
@@ -60,6 +67,7 @@ func (p *Parser) comparison() Expr {
 			Right:    right,
 		}
 	}
+
 	return expr
 }
 
@@ -102,7 +110,8 @@ func (p *Parser) unary() Expr {
 			Right:    right,
 		}
 	}
-	return p.primary()
+	result := p.primary()
+	return result
 }
 
 func (p *Parser) primary() Expr {
@@ -127,10 +136,9 @@ func (p *Parser) primary() Expr {
 			Expression: expr,
 		}
 	}
-
-	return &LiteralExpr{
-		Value: "temp",
-	}
+	// Look in to this later. Maybe I just want to ubble up the errors to the top
+	p.error = errors.Join(createParseError(p.peek(), "Expect expression."))
+	return nil
 }
 
 func (p *Parser) match(types ...TokenType) bool {
@@ -143,12 +151,13 @@ func (p *Parser) match(types ...TokenType) bool {
 	return false
 }
 
-func (p *Parser) consume(tokenType TokenType, message string) (Token, error) {
+func (p *Parser) consume(tokenType TokenType, message string) Token {
 	if p.check(tokenType) {
-		return p.advance(), nil
+		return p.advance()
 	}
-
-	return Token{}, createParseError(p.peek(), message)
+	// Add the error to the struct, and we keep trucking. We'll see if this becomes a problem
+	p.error = errors.Join(p.error, createParseError(p.peek(), message))
+	return Token{}
 }
 
 func (p *Parser) check(tokenType token.TokenType) bool {
@@ -177,9 +186,33 @@ func (p *Parser) previous() Token {
 	return p.tokens[p.current-1]
 }
 
-func createParseError(tokenWithError Token, message string) ParseError {
+func createParseError(tokenWithError Token, message string) *GloxError {
 	if tokenWithError.TokenType == token.EOF {
-		glox_error.Create
+		return glox_error.Create(tokenWithError.Line, "at end", message)
+	}
+	return glox_error.Create(tokenWithError.Line, fmt.Sprintf(" at '%s' of token type '%s'", tokenWithError.Lexeme, tokenWithError.TokenType), message)
+}
+
+func (p *Parser) synchronize() {
+	p.advance()
+
+	for !p.isAtEnd() {
+		if p.previous().TokenType == token.SEMICOLON {
+			return
+		}
+
+		switch p.peek().TokenType {
+		case token.CLASS:
+		case token.FUN:
+		case token.VAR:
+		case token.FOR:
+		case token.IF:
+		case token.WHILE:
+		case token.PRINT:
+		case token.RETURN:
+			return
+		}
+		p.advance()
 	}
 
 }

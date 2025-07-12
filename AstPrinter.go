@@ -9,6 +9,9 @@ import (
 type AstPrinter struct{}
 
 func (printer *AstPrinter) Print(expr ast.Expr) string {
+	if expr == nil {
+		return fmt.Sprintln("The AST Printer was given a null expression")
+	}
 	return expr.Accept(printer).(string)
 }
 
