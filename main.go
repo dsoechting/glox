@@ -3,9 +3,9 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 
+	"dsoechting/glox/interpret"
 	"dsoechting/glox/parse"
 	"dsoechting/glox/scanner"
 )
@@ -65,16 +65,18 @@ func run(source string) error {
 	tokens, scanErr := scanner.ScanTokens()
 	// Token printing code
 	// for _, token := range tokens {
-	// 	fmt.Println(token)
+	// 	log.Println(token)
 	// }
 
-	printer := AstPrinter{}
+	// printer := AstPrinter{}
 	parser := parse.Create(tokens)
+	// We need to make this static in the future, I am just hacking this in for now
+	interpreter := interpret.Interpreter{}
+
 	expression, parseError := parser.Parse()
 	if parseError != nil {
-		log.Println(parseError)
-	} else {
-		log.Println(printer.Print(expression))
+		return parseError
 	}
+	interpreter.Interpret(expression)
 	return scanErr
 }

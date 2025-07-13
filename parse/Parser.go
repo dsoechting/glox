@@ -9,6 +9,7 @@ import (
 )
 
 type Expr = ast.Expr
+type TernaryExpr = ast.TernaryExpr
 type BinaryExpr = ast.BinaryExpr
 type UnaryExpr = ast.UnaryExpr
 type LiteralExpr = ast.LiteralExpr
@@ -33,13 +34,32 @@ func Create(tokens []token.Token) Parser {
 func (p *Parser) Parse() (Expr, error) {
 	expression := p.expression()
 	if p.error != nil {
-		return nil, fmt.Errorf("There were parsing errors: %s\n", p.error)
+		return nil, fmt.Errorf("There were parsing errors: %v\n", p.error)
 	}
 	return expression, nil
 }
 
 func (p *Parser) expression() Expr {
-	return p.equality()
+	// return p.equality()
+	return p.ternary()
+}
+
+func (p *Parser) ternary() Expr {
+	expr := p.equality()
+
+	if p.match(token.QUESTION) {
+		operator := p.previous()
+		second := p.equality()
+		p.consume(token.COLON, "Expecting a false value for the ternary")
+		third := p.equality()
+		expr = &TernaryExpr{
+			Operator: operator,
+			First:    expr,
+			Second:   second,
+			Third:    third,
+		}
+	}
+	return expr
 }
 
 func (p *Parser) equality() Expr {
@@ -137,7 +157,7 @@ func (p *Parser) primary() Expr {
 		}
 	}
 	// Look in to this later. Maybe I just want to ubble up the errors to the top
-	p.error = errors.Join(createParseError(p.peek(), "Expect expression."))
+	p.error = errors.Join(p.error, createParseError(p.peek(), "Expect expression."))
 	return nil
 }
 
@@ -151,13 +171,14 @@ func (p *Parser) match(types ...TokenType) bool {
 	return false
 }
 
-func (p *Parser) consume(tokenType TokenType, message string) Token {
+func (p *Parser) consume(tokenType TokenType, message string) (Token, error) {
 	if p.check(tokenType) {
-		return p.advance()
+		return p.advance(), nil
 	}
 	// Add the error to the struct, and we keep trucking. We'll see if this becomes a problem
-	p.error = errors.Join(p.error, createParseError(p.peek(), message))
-	return Token{}
+	consumeError := createParseError(p.peek(), message)
+	p.error = errors.Join(p.error, consumeError)
+	return Token{}, consumeError
 }
 
 func (p *Parser) check(tokenType token.TokenType) bool {

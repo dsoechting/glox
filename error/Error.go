@@ -9,7 +9,7 @@ type GloxError struct {
 }
 
 func (e *GloxError) Error() string {
-	return fmt.Sprintf("[line %d] Error%s: %s", e.line, e.where, e.message)
+	return fmt.Sprintf("[line %d] Error %s: %s", e.line, e.where, e.message)
 }
 
 func Create(line int, where string, message string) *GloxError {
