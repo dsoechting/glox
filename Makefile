@@ -1,9 +1,12 @@
-build:
-	go build ./main.go
+b:
+	go build -o build/glox
 
-run:
-	go run ./main.go
+r:
+	./build/glox
+
+t:
+	go test ./test/...
 
 dev:
-	go build
-	./glox
+	go build -o build/glox
+	./build/glox

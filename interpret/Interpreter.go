@@ -22,12 +22,14 @@ type GloxError = glox_error.GloxError
 // Need to implement ExprVisitor
 type Interpreter struct{}
 
-func (i *Interpreter) Interpret(expression Expr) {
+func (i *Interpreter) Interpret(expression Expr) (string, error) {
 	value, interpretErr := i.evaluate(expression)
 	if interpretErr != nil {
-		log.Println(interpretErr.Error())
+		log.Fatalf("Interpreter failed with error: %v\n", interpretErr)
+		return "", interpretErr
 	} else {
-		log.Printf("%s\n", value)
+		log.Printf("Interpreter resulted in value: %v\n", value)
+		return fmt.Sprintf("%v", value), nil
 	}
 }
 
@@ -53,7 +55,7 @@ func (i *Interpreter) VisitBinary(expr *BinaryExpr) (any, error) {
 	}
 
 	switch expr.Operator.TokenType {
-	case token.EQUAL:
+	case token.EQUAL_EQUAL:
 		operandsErr := checkNumberOperands(expr.Operator, left, right)
 		if operandsErr != nil {
 			return nil, operandsErr
