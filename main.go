@@ -3,9 +3,9 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 
+	"dsoechting/glox/interpret"
 	"dsoechting/glox/parse"
 	"dsoechting/glox/scanner"
 )
@@ -34,7 +34,7 @@ func runFile(path string) {
 		// Can't read file
 		os.Exit(66)
 	}
-	runErr := run(string(data))
+	_, runErr := run(string(data))
 	if runErr != nil {
 		fmt.Println(runErr.Error())
 		os.Exit(65)
@@ -52,7 +52,7 @@ func runPrompt() error {
 		if line == nil {
 			break
 		}
-		runErr := run(string(line))
+		_, runErr := run(string(line))
 		if runErr != nil {
 			fmt.Println(runErr.Error())
 		}
@@ -60,21 +60,30 @@ func runPrompt() error {
 	return nil
 }
 
-func run(source string) error {
+func run(source string) (string, error) {
 	scanner := scanner.Create(source)
 	tokens, scanErr := scanner.ScanTokens()
+	if scanErr != nil {
+		return "", scanErr
+	}
+
 	// Token printing code
 	// for _, token := range tokens {
-	// 	fmt.Println(token)
+	// 	log.Println(token)
 	// }
 
-	printer := AstPrinter{}
+	// printer := AstPrinter{}
 	parser := parse.Create(tokens)
+	// We need to make this static in the future, I am just hacking this in for now
+	interpreter := interpret.Interpreter{}
+
 	expression, parseError := parser.Parse()
 	if parseError != nil {
-		log.Println(parseError)
-	} else {
-		log.Println(printer.Print(expression))
+		return "", parseError
 	}
-	return scanErr
+	evaluatedExpr, evalErr := interpreter.Interpret(expression)
+	if evalErr != nil {
+		return "", evalErr
+	}
+	return evaluatedExpr, nil
 }

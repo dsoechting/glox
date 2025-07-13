@@ -2,6 +2,8 @@ package token
 
 import "fmt"
 
+// Just run go generate in this directory to update the enum string
+//
 //go:generate go run golang.org/x/tools/cmd/stringer -type=TokenType
 type TokenType int
 
@@ -18,6 +20,8 @@ const (
 	SEMICOLON
 	SLASH
 	STAR
+	QUESTION
+	COLON
 
 	// One or two character tokens.
 	BANG
