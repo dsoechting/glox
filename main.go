@@ -3,45 +3,53 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 
+	glox_error "dsoechting/glox/error"
 	"dsoechting/glox/interpret"
 	"dsoechting/glox/parse"
 	"dsoechting/glox/scanner"
 )
 
+type GloxError = glox_error.GloxError
+
 type Glox struct {
-	hadError bool
+	compileError error
+	runtimeError error
 }
 
 func main() {
 	args := os.Args[1:]
 	argCount := len(args)
+	glox := Glox{}
 
 	if argCount > 1 {
 		fmt.Println("Usage glox [script]")
 		os.Exit(64)
 	} else if argCount == 1 {
-		runFile(args[0])
+		glox.runFile(args[0])
 	} else {
-		runPrompt()
+		glox.runPrompt()
 	}
 }
 
-func runFile(path string) {
+func (g *Glox) runFile(path string) {
 	data, readErr := os.ReadFile(path)
 	if readErr != nil {
 		// Can't read file
 		os.Exit(66)
 	}
-	_, runErr := run(string(data))
-	if runErr != nil {
-		fmt.Println(runErr.Error())
+	g.run(string(data))
+	if g.compileError != nil {
 		os.Exit(65)
+	}
+	if g.runtimeError != nil {
+		os.Exit(70)
 	}
 }
 
-func runPrompt() error {
+func (g *Glox) runPrompt() error {
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		fmt.Print("> ")
@@ -52,19 +60,17 @@ func runPrompt() error {
 		if line == nil {
 			break
 		}
-		_, runErr := run(string(line))
-		if runErr != nil {
-			fmt.Println(runErr.Error())
-		}
+		g.run(string(line))
 	}
 	return nil
 }
 
-func run(source string) (string, error) {
+func (g *Glox) run(source string) {
 	scanner := scanner.Create(source)
 	tokens, scanErr := scanner.ScanTokens()
 	if scanErr != nil {
-		return "", scanErr
+		g.setCompileError(scanErr)
+		return
 	}
 
 	// Token printing code
@@ -79,11 +85,21 @@ func run(source string) (string, error) {
 
 	expression, parseError := parser.Parse()
 	if parseError != nil {
-		return "", parseError
+		g.setCompileError(parseError)
+		return
 	}
-	evaluatedExpr, evalErr := interpreter.Interpret(expression)
+	_, evalErr := interpreter.Interpret(expression)
 	if evalErr != nil {
-		return "", evalErr
+		g.setRuntimeError(evalErr)
 	}
-	return evaluatedExpr, nil
+}
+
+func (g *Glox) setCompileError(error error) {
+	g.compileError = error
+	log.Println(error.Error())
+}
+
+func (g *Glox) setRuntimeError(error error) {
+	g.runtimeError = error
+	log.Println(error.Error())
 }

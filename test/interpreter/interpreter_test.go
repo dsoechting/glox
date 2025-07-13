@@ -19,7 +19,7 @@ type expressionTestCase struct {
 }
 
 func TestExpressions(t *testing.T) {
-	// Can I auto parse the files from this dir?
+	// TODO: Dynamically iterate through all test data
 	expressionTests := []expressionTestCase{
 		{name: "Add numbers", input: "add_number_test", expected: "33"},
 		{name: "Add strings", input: "add_strings_test", expected: "firstsecond"},
@@ -35,15 +35,18 @@ func TestExpressions(t *testing.T) {
 		if parseErr != nil {
 			t.Errorf("Failed to read test input: %v\nError: %v\n", test.name, parseErr)
 		}
+		// Ideally my interpreter tests wouldn't rely on the scanner and the parser
+		// But I'm not typing out all of that test data
 		scanner := scanner.Create(inputText)
 		interpreter := Interpreter{}
 
 		tokens, _ := scanner.ScanTokens()
 		parser := parse.Create(tokens)
 		expression, _ := parser.Parse()
+
+		// Run test
 		actual, evalErr := interpreter.Interpret(expression)
 
-		// actual, evalErr := run(inputText)
 		if evalErr != nil {
 			t.Errorf("Error while running test: %v\nError: %v\n", test.name, evalErr)
 			continue
@@ -64,14 +67,12 @@ func readExpressionSnippet(snippetName string) (string, error) {
 
 func readTestFile(path string) (string, error) {
 
-	// Read the entire file content into a byte slice
 	contentBytes, err := os.ReadFile(path)
 	if err != nil {
 		fmt.Printf("Error reading file: %v\n", err)
 		return "", err
 	}
 
-	// Convert the byte slice to a string
 	contentString := string(contentBytes)
 
 	return contentString, nil

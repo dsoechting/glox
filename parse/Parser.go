@@ -4,7 +4,6 @@ import (
 	"dsoechting/glox/ast"
 	glox_error "dsoechting/glox/error"
 	"dsoechting/glox/token"
-	"errors"
 	"fmt"
 )
 
@@ -21,7 +20,6 @@ type GloxError = glox_error.GloxError
 type Parser struct {
 	tokens  []token.Token
 	current int
-	error   error
 }
 
 func Create(tokens []token.Token) Parser {
@@ -32,26 +30,40 @@ func Create(tokens []token.Token) Parser {
 }
 
 func (p *Parser) Parse() (Expr, error) {
-	expression := p.expression()
-	if p.error != nil {
-		return nil, fmt.Errorf("There were parsing errors: %v\n", p.error)
+	expression, err := p.expression()
+	if err != nil {
+		return nil, err
 	}
 	return expression, nil
 }
 
-func (p *Parser) expression() Expr {
-	// return p.equality()
+func (p *Parser) expression() (Expr, error) {
 	return p.ternary()
 }
 
-func (p *Parser) ternary() Expr {
-	expr := p.equality()
+func (p *Parser) ternary() (Expr, error) {
+	expr, eqErr := p.equality()
+	if eqErr != nil {
+		return nil, eqErr
+	}
 
 	if p.match(token.QUESTION) {
 		operator := p.previous()
-		second := p.equality()
-		p.consume(token.COLON, "Expecting a false value for the ternary")
-		third := p.equality()
+		second, secondErr := p.equality()
+		if secondErr != nil {
+			return nil, secondErr
+		}
+
+		_, err := p.consume(token.COLON, "Expecting a false value for the ternary")
+		if err != nil {
+			return nil, err
+		}
+
+		third, thirdErr := p.equality()
+		if thirdErr != nil {
+			return nil, thirdErr
+		}
+
 		expr = &TernaryExpr{
 			Operator: operator,
 			First:    expr,
@@ -59,28 +71,41 @@ func (p *Parser) ternary() Expr {
 			Third:    third,
 		}
 	}
-	return expr
+	return expr, nil
 }
 
-func (p *Parser) equality() Expr {
-	expr := p.comparison()
+func (p *Parser) equality() (Expr, error) {
+	expr, compErr := p.comparison()
+	if compErr != nil {
+		return nil, compErr
+	}
 
 	for p.match(token.BANG_EQUAL, token.EQUAL_EQUAL) {
 		operator := p.previous()
-		right := p.comparison()
+		right, rightErr := p.comparison()
+		if rightErr != nil {
+			return nil, rightErr
+		}
 		expr = &BinaryExpr{
 			Left: expr, Operator: operator, Right: right,
 		}
 	}
-	return expr
+	return expr, nil
 }
 
-func (p *Parser) comparison() Expr {
-	expr := p.term()
+func (p *Parser) comparison() (Expr, error) {
+	expr, termErr := p.term()
+	if termErr != nil {
+		return nil, termErr
+	}
 
 	for p.match(token.GREATER, token.GREATER_EQUAL, token.LESS, token.LESS_EQUAL) {
 		operator := p.previous()
-		right := p.term()
+		right, rightErr := p.term()
+		if rightErr != nil {
+			return nil, rightErr
+		}
+
 		expr = &BinaryExpr{
 			Left:     expr,
 			Operator: operator,
@@ -88,77 +113,105 @@ func (p *Parser) comparison() Expr {
 		}
 	}
 
-	return expr
+	return expr, nil
 }
 
-func (p *Parser) term() Expr {
-	expr := p.factor()
+func (p *Parser) term() (Expr, error) {
+	expr, factorErr := p.factor()
+	if factorErr != nil {
+		return nil, factorErr
+	}
 
 	for p.match(token.PLUS, token.MINUS) {
 		operator := p.previous()
-		right := p.factor()
+		right, rightErr := p.factor()
+		if rightErr != nil {
+			return nil, rightErr
+		}
+
 		expr = &BinaryExpr{
 			Left:     expr,
 			Operator: operator,
 			Right:    right,
 		}
 	}
-	return expr
+	return expr, nil
 }
 
-func (p *Parser) factor() Expr {
-	expr := p.unary()
+func (p *Parser) factor() (Expr, error) {
+	expr, unaryErr := p.unary()
+	if unaryErr != nil {
+		return nil, unaryErr
+	}
 
 	for p.match(token.STAR, token.SLASH) {
 		operator := p.previous()
-		right := p.unary()
+		right, rightErr := p.unary()
+		if rightErr != nil {
+			return nil, rightErr
+		}
+
 		expr = &BinaryExpr{
 			Left:     expr,
 			Operator: operator,
 			Right:    right,
 		}
 	}
-	return expr
+	return expr, nil
 }
 
-func (p *Parser) unary() Expr {
+func (p *Parser) unary() (Expr, error) {
 	if p.match(token.MINUS, token.BANG) {
 		operator := p.previous()
-		right := p.unary()
+		right, rightErr := p.unary()
+		if rightErr != nil {
+			return nil, rightErr
+		}
+
 		return &UnaryExpr{
 			Operator: operator,
 			Right:    right,
-		}
+		}, nil
 	}
-	result := p.primary()
-	return result
+	result, primaryErr := p.primary()
+	if primaryErr != nil {
+		return nil, primaryErr
+	}
+
+	return result, nil
 }
 
-func (p *Parser) primary() Expr {
+func (p *Parser) primary() (Expr, error) {
 	if p.match(token.FALSE) {
-		return &LiteralExpr{Value: false}
+		return &LiteralExpr{Value: false}, nil
 	}
 	if p.match(token.TRUE) {
-		return &LiteralExpr{Value: true}
+		return &LiteralExpr{Value: true}, nil
 	}
 	if p.match(token.NIL) {
-		return &LiteralExpr{Value: nil}
+		return &LiteralExpr{Value: nil}, nil
 	}
 
 	if p.match(token.STRING, token.NUMBER) {
-		return &LiteralExpr{Value: p.previous().Literal}
+		return &LiteralExpr{Value: p.previous().Literal}, nil
 	}
 
 	if p.match(token.LEFT_PAREN) {
-		expr := p.expression()
-		p.consume(token.RIGHT_PAREN, "Expect ')' after expression")
+		expr, err := p.expression()
+		if err != nil {
+			return nil, err
+		}
+
+		_, rightParenErr := p.consume(token.RIGHT_PAREN, "Expect ')' after expression")
+		if rightParenErr != nil {
+			return nil, rightParenErr
+		}
+
 		return &GroupingExpr{
 			Expression: expr,
-		}
+		}, nil
 	}
-	// Look in to this later. Maybe I just want to ubble up the errors to the top
-	p.error = errors.Join(p.error, createParseError(p.peek(), "Expect expression."))
-	return nil
+	return nil, createParseError(p.peek(), "Expect expression.")
 }
 
 func (p *Parser) match(types ...TokenType) bool {
@@ -177,7 +230,6 @@ func (p *Parser) consume(tokenType TokenType, message string) (Token, error) {
 	}
 	// Add the error to the struct, and we keep trucking. We'll see if this becomes a problem
 	consumeError := createParseError(p.peek(), message)
-	p.error = errors.Join(p.error, consumeError)
 	return Token{}, consumeError
 }
 
