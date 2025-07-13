@@ -1,11 +1,16 @@
-package main
+package test
 
 import (
+	"dsoechting/glox/interpret"
+	"dsoechting/glox/parse"
+	"dsoechting/glox/scanner"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+type Interpreter = interpret.Interpreter
 
 type expressionTestCase struct {
 	name     string
@@ -13,10 +18,6 @@ type expressionTestCase struct {
 	expected string
 }
 
-// I will probably need to rework this later.
-// The run() function will not always return the stringified interprete result
-// But it is nice to have the the Scanner and Parser do a lot of work for me.
-// Maybe I have Scanner and Parser tests like this, and only progress to the next test if the prev passes
 func TestExpressions(t *testing.T) {
 	// Can I auto parse the files from this dir?
 	expressionTests := []expressionTestCase{
@@ -34,8 +35,15 @@ func TestExpressions(t *testing.T) {
 		if parseErr != nil {
 			t.Errorf("Failed to read test input: %v\nError: %v\n", test.name, parseErr)
 		}
+		scanner := scanner.Create(inputText)
+		interpreter := Interpreter{}
 
-		actual, evalErr := run(inputText)
+		tokens, _ := scanner.ScanTokens()
+		parser := parse.Create(tokens)
+		expression, _ := parser.Parse()
+		actual, evalErr := interpreter.Interpret(expression)
+
+		// actual, evalErr := run(inputText)
 		if evalErr != nil {
 			t.Errorf("Error while running test: %v\nError: %v\n", test.name, evalErr)
 			continue
@@ -50,7 +58,7 @@ func TestExpressions(t *testing.T) {
 }
 
 func readExpressionSnippet(snippetName string) (string, error) {
-	filePath := filepath.Join("test", "expressions", fmt.Sprintf("%s.txt", snippetName))
+	filePath := filepath.Join("data", fmt.Sprintf("%s.txt", snippetName))
 	return readTestFile(filePath)
 }
 
