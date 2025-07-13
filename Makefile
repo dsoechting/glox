@@ -5,6 +5,7 @@ r:
 	./build/glox
 
 t:
+	go build -o build/glox
 	go test ./test/...
 
 dev:

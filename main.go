@@ -13,8 +13,10 @@ import (
 )
 
 type GloxError = glox_error.GloxError
+type Interpreter = interpret.Interpreter
 
 type Glox struct {
+	interpreter  Interpreter
 	compileError error
 	runtimeError error
 }
@@ -22,7 +24,9 @@ type Glox struct {
 func main() {
 	args := os.Args[1:]
 	argCount := len(args)
-	glox := Glox{}
+	glox := Glox{
+		interpreter: Interpreter{},
+	}
 
 	if argCount > 1 {
 		fmt.Println("Usage glox [script]")
@@ -81,14 +85,13 @@ func (g *Glox) run(source string) {
 	// printer := AstPrinter{}
 	parser := parse.Create(tokens)
 	// We need to make this static in the future, I am just hacking this in for now
-	interpreter := interpret.Interpreter{}
 
 	expression, parseError := parser.Parse()
 	if parseError != nil {
 		g.setCompileError(parseError)
 		return
 	}
-	_, evalErr := interpreter.Interpret(expression)
+	_, evalErr := g.interpreter.Interpret(expression)
 	if evalErr != nil {
 		g.setRuntimeError(evalErr)
 	}
