@@ -3,3 +3,7 @@ build:
 
 run:
 	go run ./main.go
+
+dev:
+	go build
+	./glox

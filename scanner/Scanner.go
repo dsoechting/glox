@@ -106,6 +106,12 @@ func (s *Scanner) scanToken() error {
 			s.addTokenSimple(token.GREATER)
 		}
 		break
+	case '?':
+		s.addTokenSimple(token.QUESTION)
+		break
+	case ':':
+		s.addTokenSimple(token.COLON)
+		break
 	case '/':
 		// Single line comments
 		if s.match('/') {
