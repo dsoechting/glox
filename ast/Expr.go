@@ -2,8 +2,6 @@ package ast
 
 import "dsoechting/glox/token"
 
-type Token = token.Token
-
 type Expr interface {
 	Accept(visitor ExprVisitor) (any, error)
 }
@@ -17,7 +15,7 @@ type ExprVisitor interface {
 }
 
 type TernaryExpr struct {
-	Operator Token
+	Operator token.Token
 	First    Expr
 	Second   Expr
 	Third    Expr
@@ -29,7 +27,7 @@ func (e *TernaryExpr) Accept(visitor ExprVisitor) (any, error) {
 
 type BinaryExpr struct {
 	Left     Expr
-	Operator Token
+	Operator token.Token
 	Right    Expr
 }
 
@@ -54,7 +52,7 @@ func (e *LiteralExpr) Accept(visitor ExprVisitor) (any, error) {
 }
 
 type UnaryExpr struct {
-	Operator Token
+	Operator token.Token
 	Right    Expr
 }
 

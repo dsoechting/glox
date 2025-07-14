@@ -8,6 +8,7 @@ import (
 )
 
 type Expr = ast.Expr
+type Stmt = ast.Stmt
 type TernaryExpr = ast.TernaryExpr
 type BinaryExpr = ast.BinaryExpr
 type UnaryExpr = ast.UnaryExpr
@@ -29,12 +30,58 @@ func Create(tokens []token.Token) Parser {
 	}
 }
 
-func (p *Parser) Parse() (Expr, error) {
-	expression, err := p.expression()
+func (p *Parser) Parse() ([]Stmt, error) {
+	// expression, err := p.expression()
+	statements := []Stmt{}
+	for !p.isAtEnd() {
+		stmt, stmtErr := p.statement()
+		if stmtErr != nil {
+			// Do I want to end parsing here? I might want to keep going
+			return nil, stmtErr
+		}
+		statements = append(statements, stmt)
+
+	}
+	return statements, nil
+}
+
+func (p *Parser) statement() (Stmt, error) {
+	if p.match(token.PRINT) {
+		return p.printStatement()
+	}
+	return p.expressionStatement()
+}
+
+func (p *Parser) printStatement() (Stmt, error) {
+	value, err := p.expression()
 	if err != nil {
 		return nil, err
 	}
-	return expression, nil
+
+	_, semiColonErr := p.consume(token.SEMICOLON, "Expect ';' after value")
+	if semiColonErr != nil {
+		return nil, semiColonErr
+	}
+
+	return &ast.PrintStmt{
+		Expression: value,
+	}, nil
+}
+
+func (p *Parser) expressionStatement() (Stmt, error) {
+	value, err := p.expression()
+	if err != nil {
+		return nil, err
+	}
+
+	_, semiColonErr := p.consume(token.SEMICOLON, "Expect ';' after value")
+	if semiColonErr != nil {
+		return nil, semiColonErr
+	}
+
+	return &ast.ExpressionStmt{
+		Expression: value,
+	}, nil
 }
 
 func (p *Parser) expression() (Expr, error) {

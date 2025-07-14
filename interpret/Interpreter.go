@@ -6,10 +6,12 @@ import (
 	"dsoechting/glox/token"
 	"errors"
 	"fmt"
-	"log"
 	"strconv"
 )
 
+type Stmt = ast.Stmt
+type ExpressionStmt = ast.ExpressionStmt
+type PrintStmt = ast.PrintStmt
 type Expr = ast.Expr
 type TernaryExpr = ast.TernaryExpr
 type BinaryExpr = ast.BinaryExpr
@@ -19,18 +21,41 @@ type LiteralExpr = ast.LiteralExpr
 type Token = token.Token
 type GloxError = glox_error.GloxError
 
-// Need to implement ExprVisitor
+// Implements ExprVisitor and StmtVisitor
 type Interpreter struct{}
 
-func (i *Interpreter) Interpret(expression Expr) (string, error) {
-	value, interpretErr := i.evaluate(expression)
-	if interpretErr != nil {
-		log.Fatalf("Interpreter failed with error: %v\n", interpretErr)
-		return "", interpretErr
-	} else {
-		log.Printf("Interpreter resulted in value: %v\n", value)
-		return fmt.Sprintf("%v", value), nil
+func (i *Interpreter) Interpret(statements []Stmt) (string, error) {
+	for _, statement := range statements {
+		err := i.execute(statement)
+		if err != nil {
+			return "", err
+		}
 	}
+	// This is going to break my tests :)
+	// Maybe we will modify this later, to make things easier to test
+	return "", nil
+	// value, interpretErr := i.evaluate(expression)
+	// if interpretErr != nil {
+	// 	log.Fatalf("Interpreter failed with error: %v\n", interpretErr)
+	// 	return "", interpretErr
+	// } else {
+	// 	log.Printf("Interpreter resulted in value: %v\n", value)
+	// 	return fmt.Sprintf("%v", value), nil
+	// }
+}
+
+func (i *Interpreter) VisitExpression(stmt *ExpressionStmt) (any, error) {
+	_, err := i.evaluate(stmt.Expression)
+	return nil, err
+}
+
+func (i *Interpreter) VisitPrint(stmt *PrintStmt) (any, error) {
+	value, err := i.evaluate(stmt.Expression)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(stringify(value))
+	return nil, nil
 }
 
 func (i *Interpreter) VisitTernary(expr *TernaryExpr) (any, error) {
@@ -162,6 +187,11 @@ func (i *Interpreter) VisitUnary(expr *UnaryExpr) (any, error) {
 
 func (i *Interpreter) evaluate(expr Expr) (any, error) {
 	return expr.Accept(i)
+}
+
+func (i *Interpreter) execute(stmt Stmt) error {
+	_, err := stmt.Accept(i)
+	return err
 }
 
 func isTruthy(value any) bool {

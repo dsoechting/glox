@@ -7,11 +7,20 @@ import (
 )
 
 var exprTypes = []string{
-	"Binary : left Expr, operator token.Token, right Expr",
-	"Grouping : expression Expr",
-	"Literal : value token.Token",
-	"Unary : operator token.Token, right Expr",
+	"Ternary : Operator token.Token, First Expr, Second Expr, Third Expr",
+	"Binary : Left Expr, Operator token.Token, Right Expr",
+	"Grouping : Expression Expr",
+	"Literal : Value any",
+	"Unary : Operator token.Token, Right Expr",
 }
+
+var stmtTypes = []string{
+	"Expression : Expression Expr",
+	"Print : Expression Expr",
+}
+
+const EXPR string = "Expr"
+const STMT string = "Stm"
 
 func main() {
 	args := os.Args[1:]
@@ -25,6 +34,7 @@ func main() {
 	outputDir := args[0]
 
 	defineAst(outputDir, "Expr", exprTypes)
+	defineAst(outputDir, "Stmt", stmtTypes)
 }
 
 func defineAst(outputDir string, baseName string, types []string) {
@@ -34,11 +44,10 @@ func defineAst(outputDir string, baseName string, types []string) {
 
 	fmt.Fprintln(&b, "package ast")
 	fmt.Fprintln(&b, "")
-	fmt.Fprintln(&b, "import \"dsoechting/glox/token\"")
-	fmt.Fprintln(&b, "")
+	defineImports(&b, baseName)
 
-	fmt.Fprintln(&b, "type Expr interface {")
-	fmt.Fprintln(&b, "	Accept(visitor ExprVisitor[any]) any")
+	fmt.Fprintf(&b, "type %s interface {\n", baseName)
+	fmt.Fprintf(&b, "	Accept(visitor %sVisitor) (any, error)", baseName)
 	fmt.Fprintln(&b, "}")
 	fmt.Fprintln(&b, "")
 
@@ -55,20 +64,23 @@ func defineAst(outputDir string, baseName string, types []string) {
 
 }
 
+func defineImports(b *strings.Builder, baseName string) {
+	switch baseName {
+	case EXPR:
+		fmt.Fprintln(b, "import \"dsoechting/glox/token\"")
+		fmt.Fprintln(b, "")
+	case STMT:
+		break
+	}
+}
+
 func defineVisitor(b *strings.Builder, baseName string, types []string) {
 
-	// type ExprVisitor interface {
-	// 	VisitBinary(expr *BinaryExpr)
-	// 	VisitGrouping(expr *GroupingExpr)
-	// 	VisitLiteral(expr *LiteralExpr)
-	// 	VisitUnary(expr *UnaryExpr)
-	// }
-
-	fmt.Fprintf(b, "type %sVisitor[T any] interface {\n", baseName)
+	fmt.Fprintf(b, "type %sVisitor interface {\n", baseName)
 	for _, v := range types {
 		splits := strings.Split(v, ":")
 		structName := strings.TrimSpace(splits[0])
-		fmt.Fprintf(b, "	Visit%s(expr *%s%s) T\n", structName, structName, baseName)
+		fmt.Fprintf(b, "	Visit%s(%s *%s%s) (any, error)\n", structName, strings.ToLower(baseName), structName, baseName)
 	}
 	fmt.Fprintln(b, "}")
 	fmt.Fprintln(b, "")
@@ -82,14 +94,15 @@ func defineType(b *strings.Builder, baseName string, structName string, fieldLis
 	fields := strings.Split(fieldList, ", ")
 	for _, v := range fields {
 		splitField := strings.Split(v, " ")
-		fieldName := strings.Title(strings.ToLower(splitField[0]))
+		fieldName := splitField[0]
+
 		fieldType := splitField[1]
 		fmt.Fprintf(b, "	%s %s\n", fieldName, fieldType)
 	}
 	fmt.Fprintln(b, "}")
 	fmt.Fprintln(b, "")
 
-	fmt.Fprintf(b, "func (e *%s) Accept(visitor ExprVisitor[any]) any {\n", fullStructName)
+	fmt.Fprintf(b, "func (e *%s) Accept(visitor %sVisitor) (any, error) {\n", fullStructName, baseName)
 	fmt.Fprintf(b, "	return visitor.Visit%s(e)\n", structName)
 	fmt.Fprintln(b, "}")
 	fmt.Fprintln(b, "")

@@ -86,12 +86,12 @@ func (g *Glox) run(source string) {
 	parser := parse.Create(tokens)
 	// We need to make this static in the future, I am just hacking this in for now
 
-	expression, parseError := parser.Parse()
+	statements, parseError := parser.Parse()
 	if parseError != nil {
 		g.setCompileError(parseError)
 		return
 	}
-	_, evalErr := g.interpreter.Interpret(expression)
+	_, evalErr := g.interpreter.Interpret(statements)
 	if evalErr != nil {
 		g.setRuntimeError(evalErr)
 	}
