@@ -1,7 +1,7 @@
 .PHONY: ast
 ast:
-	go build tools/GenerateAst.go
-	./GenerateAst ./ast
+	go build -o build/GenerateAst tools/GenerateAst.go
+	./build/GenerateAst ./ast
 	go fmt ./ast/...
 
 .PHONY: token
