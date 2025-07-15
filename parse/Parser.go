@@ -9,6 +9,7 @@ import (
 
 type Expr = ast.Expr
 type Stmt = ast.Stmt
+type VarStmt = ast.VarStmt
 type TernaryExpr = ast.TernaryExpr
 type BinaryExpr = ast.BinaryExpr
 type UnaryExpr = ast.UnaryExpr
@@ -31,10 +32,10 @@ func Create(tokens []token.Token) Parser {
 }
 
 func (p *Parser) Parse() ([]Stmt, error) {
-	// expression, err := p.expression()
 	statements := []Stmt{}
 	for !p.isAtEnd() {
-		stmt, stmtErr := p.statement()
+		// stmt, stmtErr := p.statement()
+		stmt, stmtErr := p.declaration()
 		if stmtErr != nil {
 			// Do I want to end parsing here? I might want to keep going
 			return nil, stmtErr
@@ -43,6 +44,23 @@ func (p *Parser) Parse() ([]Stmt, error) {
 
 	}
 	return statements, nil
+}
+
+func (p *Parser) declaration() (Stmt, error) {
+	if p.match(token.VAR) {
+		varDecl, err := p.varDeclaration()
+		if err != nil {
+			p.synchronize()
+			return nil, err
+		}
+		return varDecl, nil
+	}
+	stmt, err := p.statement()
+	if err != nil {
+		p.synchronize()
+		return nil, err
+	}
+	return stmt, nil
 }
 
 func (p *Parser) statement() (Stmt, error) {
@@ -65,6 +83,32 @@ func (p *Parser) printStatement() (Stmt, error) {
 
 	return &ast.PrintStmt{
 		Expression: value,
+	}, nil
+}
+
+func (p *Parser) varDeclaration() (Stmt, error) {
+	name, nameErr := p.consume(token.IDENTIFIER, "Expected variable name.")
+	if nameErr != nil {
+		return nil, nameErr
+	}
+
+	var initializer Expr
+	var err error
+	if p.match(token.EQUAL) {
+		initializer, err = p.expression()
+		if err != nil {
+			return nil, err
+		}
+
+	}
+	_, semiColonErr := p.consume(token.SEMICOLON, "Expect a ';' after variable declaration.")
+	if semiColonErr != nil {
+		return nil, semiColonErr
+	}
+
+	return &VarStmt{
+		Name:        name,
+		Initializer: initializer,
 	}, nil
 }
 
@@ -241,6 +285,12 @@ func (p *Parser) primary() (Expr, error) {
 
 	if p.match(token.STRING, token.NUMBER) {
 		return &LiteralExpr{Value: p.previous().Literal}, nil
+	}
+
+	if p.match(token.IDENTIFIER) {
+		return &ast.VariableExpr{
+			Name: p.previous(),
+		}, nil
 	}
 
 	if p.match(token.LEFT_PAREN) {

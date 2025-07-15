@@ -25,7 +25,7 @@ func main() {
 	args := os.Args[1:]
 	argCount := len(args)
 	glox := Glox{
-		interpreter: Interpreter{},
+		interpreter: interpret.Create(),
 	}
 
 	if argCount > 1 {

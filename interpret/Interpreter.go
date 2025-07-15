@@ -2,6 +2,7 @@ package interpret
 
 import (
 	"dsoechting/glox/ast"
+	"dsoechting/glox/environment"
 	glox_error "dsoechting/glox/error"
 	"dsoechting/glox/token"
 	"errors"
@@ -9,20 +10,32 @@ import (
 	"strconv"
 )
 
+type Environment = environment.Environment
 type Stmt = ast.Stmt
 type ExpressionStmt = ast.ExpressionStmt
 type PrintStmt = ast.PrintStmt
+type VarStmt = ast.VarStmt
 type Expr = ast.Expr
 type TernaryExpr = ast.TernaryExpr
 type BinaryExpr = ast.BinaryExpr
 type UnaryExpr = ast.UnaryExpr
+type VariableExpr = ast.VariableExpr
 type GroupingExpr = ast.GroupingExpr
 type LiteralExpr = ast.LiteralExpr
 type Token = token.Token
 type GloxError = glox_error.GloxError
 
 // Implements ExprVisitor and StmtVisitor
-type Interpreter struct{}
+type Interpreter struct {
+	environment Environment
+}
+
+func Create() Interpreter {
+	env := environment.Create()
+	return Interpreter{
+		environment: env,
+	}
+}
 
 func (i *Interpreter) Interpret(statements []Stmt) (string, error) {
 	for _, statement := range statements {
@@ -34,14 +47,6 @@ func (i *Interpreter) Interpret(statements []Stmt) (string, error) {
 	// This is going to break my tests :)
 	// Maybe we will modify this later, to make things easier to test
 	return "", nil
-	// value, interpretErr := i.evaluate(expression)
-	// if interpretErr != nil {
-	// 	log.Fatalf("Interpreter failed with error: %v\n", interpretErr)
-	// 	return "", interpretErr
-	// } else {
-	// 	log.Printf("Interpreter resulted in value: %v\n", value)
-	// 	return fmt.Sprintf("%v", value), nil
-	// }
 }
 
 func (i *Interpreter) VisitExpression(stmt *ExpressionStmt) (any, error) {
@@ -55,6 +60,21 @@ func (i *Interpreter) VisitPrint(stmt *PrintStmt) (any, error) {
 		return nil, err
 	}
 	fmt.Println(stringify(value))
+	return nil, nil
+}
+
+func (i *Interpreter) VisitVar(stmt *VarStmt) (any, error) {
+
+	var value any
+	var err error
+	if stmt.Initializer != nil {
+		value, err = i.evaluate(stmt.Initializer)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	i.environment.Define(stmt.Name.String(), value)
 	return nil, nil
 }
 
@@ -183,6 +203,10 @@ func (i *Interpreter) VisitUnary(expr *UnaryExpr) (any, error) {
 	// We should be unreachable here
 	return nil, fmt.Errorf("Invalid Unary operator %s\n", expr.Operator.TokenType)
 
+}
+
+func (i *Interpreter) VisitVariable(expr *VariableExpr) (any, error) {
+	return i.environment.Get(expr.Name)
 }
 
 func (i *Interpreter) evaluate(expr Expr) (any, error) {

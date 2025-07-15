@@ -12,15 +12,17 @@ var exprTypes = []string{
 	"Grouping : Expression Expr",
 	"Literal : Value any",
 	"Unary : Operator token.Token, Right Expr",
+	"Variable : Name token.Token",
 }
 
 var stmtTypes = []string{
 	"Expression : Expression Expr",
 	"Print : Expression Expr",
+	"Var : Name token.Token, Initializer Expr",
 }
 
 const EXPR string = "Expr"
-const STMT string = "Stm"
+const STMT string = "Stmt"
 
 func main() {
 	args := os.Args[1:]
@@ -33,8 +35,8 @@ func main() {
 	}
 	outputDir := args[0]
 
-	defineAst(outputDir, "Expr", exprTypes)
-	defineAst(outputDir, "Stmt", stmtTypes)
+	defineAst(outputDir, EXPR, exprTypes)
+	defineAst(outputDir, STMT, stmtTypes)
 }
 
 func defineAst(outputDir string, baseName string, types []string) {
@@ -67,9 +69,10 @@ func defineAst(outputDir string, baseName string, types []string) {
 func defineImports(b *strings.Builder, baseName string) {
 	switch baseName {
 	case EXPR:
+		fallthrough
+	case STMT:
 		fmt.Fprintln(b, "import \"dsoechting/glox/token\"")
 		fmt.Fprintln(b, "")
-	case STMT:
 		break
 	}
 }

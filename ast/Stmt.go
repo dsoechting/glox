@@ -1,5 +1,7 @@
 package ast
 
+import "dsoechting/glox/token"
+
 type Stmt interface {
 	Accept(visitor StmtVisitor) (any, error)
 }
@@ -7,6 +9,7 @@ type Stmt interface {
 type StmtVisitor interface {
 	VisitExpression(stmt *ExpressionStmt) (any, error)
 	VisitPrint(stmt *PrintStmt) (any, error)
+	VisitVar(stmt *VarStmt) (any, error)
 }
 
 type ExpressionStmt struct {
@@ -23,4 +26,13 @@ type PrintStmt struct {
 
 func (e *PrintStmt) Accept(visitor StmtVisitor) (any, error) {
 	return visitor.VisitPrint(e)
+}
+
+type VarStmt struct {
+	Name        token.Token
+	Initializer Expr
+}
+
+func (e *VarStmt) Accept(visitor StmtVisitor) (any, error) {
+	return visitor.VisitVar(e)
 }
