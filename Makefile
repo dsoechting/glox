@@ -1,12 +1,24 @@
-b:
+.PHONY: ast
+ast:
+	go build -o build/GenerateAst tools/GenerateAst.go
+	./build/GenerateAst ./ast
+	go fmt ./ast/...
+
+.PHONY: token
+token: 
+	go generate ./token
+
+.PHONY: build
+build:
 	go build -o build/glox
 
-r:
-	./build/glox
+full: token ast build
 
-t:
+.PHONY: test
+test: build
 	go test ./test/...
 
-dev:
-	go build -o build/glox
+run:
 	./build/glox
+
+dev: build run

@@ -2,35 +2,79 @@ package interpret
 
 import (
 	"dsoechting/glox/ast"
+	"dsoechting/glox/environment"
 	glox_error "dsoechting/glox/error"
 	"dsoechting/glox/token"
 	"errors"
 	"fmt"
-	"log"
 	"strconv"
 )
 
+type Environment = environment.Environment
+type Stmt = ast.Stmt
+type ExpressionStmt = ast.ExpressionStmt
+type PrintStmt = ast.PrintStmt
+type VarStmt = ast.VarStmt
+type BlockStmt = ast.BlockStmt
 type Expr = ast.Expr
 type TernaryExpr = ast.TernaryExpr
 type BinaryExpr = ast.BinaryExpr
 type UnaryExpr = ast.UnaryExpr
+type VariableExpr = ast.VariableExpr
 type GroupingExpr = ast.GroupingExpr
 type LiteralExpr = ast.LiteralExpr
 type Token = token.Token
 type GloxError = glox_error.GloxError
 
-// Need to implement ExprVisitor
-type Interpreter struct{}
+// Implements ExprVisitor and StmtVisitor
+type Interpreter struct {
+	environment Environment
+}
 
-func (i *Interpreter) Interpret(expression Expr) (string, error) {
-	value, interpretErr := i.evaluate(expression)
-	if interpretErr != nil {
-		log.Fatalf("Interpreter failed with error: %v\n", interpretErr)
-		return "", interpretErr
-	} else {
-		log.Printf("Interpreter resulted in value: %v\n", value)
-		return fmt.Sprintf("%v", value), nil
+func Create() Interpreter {
+	env := environment.Create()
+	return Interpreter{
+		environment: env,
 	}
+}
+
+func (i *Interpreter) Interpret(statements []Stmt) (string, error) {
+	for _, statement := range statements {
+		err := i.execute(statement)
+		if err != nil {
+			return "", err
+		}
+	}
+	// This is going to break my tests :)
+	// Maybe we will modify this later, to make things easier to test
+	return "", nil
+}
+
+func (i *Interpreter) VisitExpression(stmt *ExpressionStmt) (any, error) {
+	_, err := i.evaluate(stmt.Expression)
+	return nil, err
+}
+
+func (i *Interpreter) VisitPrint(stmt *PrintStmt) (any, error) {
+	value, err := i.evaluate(stmt.Expression)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(stringify(value))
+	return nil, nil
+}
+
+func (i *Interpreter) VisitVar(stmt *VarStmt) (any, error) {
+	var value any
+	var err error
+	if stmt.Initializer != nil {
+		value, err = i.evaluate(stmt.Initializer)
+		if err != nil {
+			return nil, err
+		}
+	}
+	i.environment.Define(stmt.Name.Lexeme, value)
+	return nil, nil
 }
 
 func (i *Interpreter) VisitTernary(expr *TernaryExpr) (any, error) {
@@ -160,8 +204,57 @@ func (i *Interpreter) VisitUnary(expr *UnaryExpr) (any, error) {
 
 }
 
+func (i *Interpreter) VisitVariable(expr *VariableExpr) (any, error) {
+	return i.environment.Get(expr.Name)
+}
+
+func (i *Interpreter) VisitAssign(expr *ast.AssignExpr) (any, error) {
+	value, err := i.evaluate(expr.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	assignErr := i.environment.Assign(expr.Name, value)
+	if assignErr != nil {
+		return nil, assignErr
+	}
+
+	return value, nil
+}
+
 func (i *Interpreter) evaluate(expr Expr) (any, error) {
 	return expr.Accept(i)
+}
+
+func (i *Interpreter) execute(stmt Stmt) error {
+	_, err := stmt.Accept(i)
+	return err
+}
+
+func (i *Interpreter) VisitBlock(stmt *BlockStmt) (any, error) {
+	blockEnv := environment.CreateWithEnclosing(i.environment)
+	i.executeBlock(stmt.Statements, blockEnv)
+	return nil, nil
+}
+
+// I hope that we don't run in to any nil here
+func (i *Interpreter) executeBlock(statements []Stmt, blockEnv Environment) error {
+	previous := i.environment
+
+	i.environment = blockEnv
+
+	defer func() {
+		i.environment = previous
+	}()
+
+	for _, stmt := range statements {
+		executeErr := i.execute(stmt)
+		if executeErr != nil {
+			return executeErr
+		}
+	}
+
+	return nil
 }
 
 func isTruthy(value any) bool {

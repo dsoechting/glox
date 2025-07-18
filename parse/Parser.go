@@ -8,11 +8,14 @@ import (
 )
 
 type Expr = ast.Expr
+type Stmt = ast.Stmt
+type VarStmt = ast.VarStmt
 type TernaryExpr = ast.TernaryExpr
 type BinaryExpr = ast.BinaryExpr
 type UnaryExpr = ast.UnaryExpr
 type LiteralExpr = ast.LiteralExpr
 type GroupingExpr = ast.GroupingExpr
+type VariableExpr = ast.VariableExpr
 type TokenType = token.TokenType
 type Token = token.Token
 type GloxError = glox_error.GloxError
@@ -29,16 +32,157 @@ func Create(tokens []token.Token) Parser {
 	}
 }
 
-func (p *Parser) Parse() (Expr, error) {
-	expression, err := p.expression()
+func (p *Parser) Parse() ([]Stmt, error) {
+	statements := []Stmt{}
+	for !p.isAtEnd() {
+		// stmt, stmtErr := p.statement()
+		stmt, stmtErr := p.declaration()
+		if stmtErr != nil {
+			// Do I want to end parsing here? I might want to keep going
+			return nil, stmtErr
+		}
+		statements = append(statements, stmt)
+
+	}
+	return statements, nil
+}
+
+func (p *Parser) declaration() (Stmt, error) {
+	if p.match(token.VAR) {
+		varDecl, err := p.varDeclaration()
+		if err != nil {
+			p.synchronize()
+			return nil, err
+		}
+		return varDecl, nil
+	}
+	stmt, err := p.statement()
+	if err != nil {
+		p.synchronize()
+		return nil, err
+	}
+	return stmt, nil
+}
+
+func (p *Parser) statement() (Stmt, error) {
+	if p.match(token.PRINT) {
+		return p.printStatement()
+	}
+	if p.match(token.LEFT_BRACE) {
+		blockStmts, blockErr := p.block()
+		if blockErr != nil {
+			return nil, blockErr
+		}
+
+		return &ast.BlockStmt{
+			Statements: blockStmts,
+		}, nil
+	}
+	return p.expressionStatement()
+}
+
+func (p *Parser) printStatement() (Stmt, error) {
+	value, err := p.expression()
 	if err != nil {
 		return nil, err
 	}
-	return expression, nil
+
+	_, semiColonErr := p.consume(token.SEMICOLON, "Expect ';' after value")
+	if semiColonErr != nil {
+		return nil, semiColonErr
+	}
+
+	return &ast.PrintStmt{
+		Expression: value,
+	}, nil
+}
+
+func (p *Parser) varDeclaration() (Stmt, error) {
+	name, nameErr := p.consume(token.IDENTIFIER, "Expected variable name.")
+	if nameErr != nil {
+		return nil, nameErr
+	}
+
+	var initializer Expr
+	var err error
+	if p.match(token.EQUAL) {
+		initializer, err = p.expression()
+		if err != nil {
+			return nil, err
+		}
+
+	}
+	_, semiColonErr := p.consume(token.SEMICOLON, "Expect a ';' after variable declaration.")
+	if semiColonErr != nil {
+		return nil, semiColonErr
+	}
+
+	return &VarStmt{
+		Name:        name,
+		Initializer: initializer,
+	}, nil
+}
+
+func (p *Parser) expressionStatement() (Stmt, error) {
+	value, err := p.expression()
+	if err != nil {
+		return nil, err
+	}
+
+	_, semiColonErr := p.consume(token.SEMICOLON, "Expect ';' after value")
+	if semiColonErr != nil {
+		return nil, semiColonErr
+	}
+
+	return &ast.ExpressionStmt{
+		Expression: value,
+	}, nil
+}
+
+func (p *Parser) block() ([]Stmt, error) {
+	statements := []Stmt{}
+	for !p.check(token.RIGHT_BRACE) && !p.isAtEnd() {
+		stmt, stmtErr := p.declaration()
+		if stmtErr != nil {
+			return nil, stmtErr
+		}
+
+		statements = append(statements, stmt)
+	}
+	_, rightBraceErr := p.consume(token.RIGHT_BRACE, "Expect '}' after block.")
+	if rightBraceErr != nil {
+		return nil, rightBraceErr
+	}
+
+	return statements, nil
 }
 
 func (p *Parser) expression() (Expr, error) {
-	return p.ternary()
+	// return p.ternary()
+	return p.assignment()
+}
+
+func (p *Parser) assignment() (Expr, error) {
+	expr, exprErr := p.ternary()
+
+	if p.match(token.EQUAL) {
+		equals := p.previous()
+		value, valueErr := p.assignment()
+		if valueErr != nil {
+			return nil, valueErr
+		}
+
+		varExpr, isVarExpr := expr.(*VariableExpr)
+		if isVarExpr {
+			name := varExpr.Name
+			return &ast.AssignExpr{
+				Name:  name,
+				Value: value,
+			}, nil
+		}
+		return nil, createParseError(equals, "Invalid assignment target.")
+	}
+	return expr, exprErr
 }
 
 func (p *Parser) ternary() (Expr, error) {
@@ -194,6 +338,12 @@ func (p *Parser) primary() (Expr, error) {
 
 	if p.match(token.STRING, token.NUMBER) {
 		return &LiteralExpr{Value: p.previous().Literal}, nil
+	}
+
+	if p.match(token.IDENTIFIER) {
+		return &ast.VariableExpr{
+			Name: p.previous(),
+		}, nil
 	}
 
 	if p.match(token.LEFT_PAREN) {
