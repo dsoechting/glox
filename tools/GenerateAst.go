@@ -8,6 +8,7 @@ import (
 
 var exprTypes = []string{
 	"Ternary : Operator token.Token, First Expr, Second Expr, Third Expr",
+	"Assign : Name token.Token, Value Expr",
 	"Binary : Left Expr, Operator token.Token, Right Expr",
 	"Grouping : Expression Expr",
 	"Literal : Value any",
@@ -16,6 +17,7 @@ var exprTypes = []string{
 }
 
 var stmtTypes = []string{
+	"Block : Statements []Stmt",
 	"Expression : Expression Expr",
 	"Print : Expression Expr",
 	"Var : Name token.Token, Initializer Expr",

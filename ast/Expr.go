@@ -8,6 +8,7 @@ type Expr interface {
 
 type ExprVisitor interface {
 	VisitTernary(expr *TernaryExpr) (any, error)
+	VisitAssign(expr *AssignExpr) (any, error)
 	VisitBinary(expr *BinaryExpr) (any, error)
 	VisitGrouping(expr *GroupingExpr) (any, error)
 	VisitLiteral(expr *LiteralExpr) (any, error)
@@ -24,6 +25,15 @@ type TernaryExpr struct {
 
 func (e *TernaryExpr) Accept(visitor ExprVisitor) (any, error) {
 	return visitor.VisitTernary(e)
+}
+
+type AssignExpr struct {
+	Name  token.Token
+	Value Expr
+}
+
+func (e *AssignExpr) Accept(visitor ExprVisitor) (any, error) {
+	return visitor.VisitAssign(e)
 }
 
 type BinaryExpr struct {

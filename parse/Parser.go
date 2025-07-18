@@ -15,6 +15,7 @@ type BinaryExpr = ast.BinaryExpr
 type UnaryExpr = ast.UnaryExpr
 type LiteralExpr = ast.LiteralExpr
 type GroupingExpr = ast.GroupingExpr
+type VariableExpr = ast.VariableExpr
 type TokenType = token.TokenType
 type Token = token.Token
 type GloxError = glox_error.GloxError
@@ -66,6 +67,16 @@ func (p *Parser) declaration() (Stmt, error) {
 func (p *Parser) statement() (Stmt, error) {
 	if p.match(token.PRINT) {
 		return p.printStatement()
+	}
+	if p.match(token.LEFT_BRACE) {
+		blockStmts, blockErr := p.block()
+		if blockErr != nil {
+			return nil, blockErr
+		}
+
+		return &ast.BlockStmt{
+			Statements: blockStmts,
+		}, nil
 	}
 	return p.expressionStatement()
 }
@@ -128,8 +139,50 @@ func (p *Parser) expressionStatement() (Stmt, error) {
 	}, nil
 }
 
+func (p *Parser) block() ([]Stmt, error) {
+	statements := []Stmt{}
+	for !p.check(token.RIGHT_BRACE) && !p.isAtEnd() {
+		stmt, stmtErr := p.declaration()
+		if stmtErr != nil {
+			return nil, stmtErr
+		}
+
+		statements = append(statements, stmt)
+	}
+	_, rightBraceErr := p.consume(token.RIGHT_BRACE, "Expect '}' after block.")
+	if rightBraceErr != nil {
+		return nil, rightBraceErr
+	}
+
+	return statements, nil
+}
+
 func (p *Parser) expression() (Expr, error) {
-	return p.ternary()
+	// return p.ternary()
+	return p.assignment()
+}
+
+func (p *Parser) assignment() (Expr, error) {
+	expr, exprErr := p.ternary()
+
+	if p.match(token.EQUAL) {
+		equals := p.previous()
+		value, valueErr := p.assignment()
+		if valueErr != nil {
+			return nil, valueErr
+		}
+
+		varExpr, isVarExpr := expr.(*VariableExpr)
+		if isVarExpr {
+			name := varExpr.Name
+			return &ast.AssignExpr{
+				Name:  name,
+				Value: value,
+			}, nil
+		}
+		return nil, createParseError(equals, "Invalid assignment target.")
+	}
+	return expr, exprErr
 }
 
 func (p *Parser) ternary() (Expr, error) {

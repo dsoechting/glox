@@ -15,6 +15,7 @@ type Stmt = ast.Stmt
 type ExpressionStmt = ast.ExpressionStmt
 type PrintStmt = ast.PrintStmt
 type VarStmt = ast.VarStmt
+type BlockStmt = ast.BlockStmt
 type Expr = ast.Expr
 type TernaryExpr = ast.TernaryExpr
 type BinaryExpr = ast.BinaryExpr
@@ -64,7 +65,6 @@ func (i *Interpreter) VisitPrint(stmt *PrintStmt) (any, error) {
 }
 
 func (i *Interpreter) VisitVar(stmt *VarStmt) (any, error) {
-
 	var value any
 	var err error
 	if stmt.Initializer != nil {
@@ -73,8 +73,7 @@ func (i *Interpreter) VisitVar(stmt *VarStmt) (any, error) {
 			return nil, err
 		}
 	}
-
-	i.environment.Define(stmt.Name.String(), value)
+	i.environment.Define(stmt.Name.Lexeme, value)
 	return nil, nil
 }
 
@@ -209,6 +208,20 @@ func (i *Interpreter) VisitVariable(expr *VariableExpr) (any, error) {
 	return i.environment.Get(expr.Name)
 }
 
+func (i *Interpreter) VisitAssign(expr *ast.AssignExpr) (any, error) {
+	value, err := i.evaluate(expr.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	assignErr := i.environment.Assign(expr.Name, value)
+	if assignErr != nil {
+		return nil, assignErr
+	}
+
+	return value, nil
+}
+
 func (i *Interpreter) evaluate(expr Expr) (any, error) {
 	return expr.Accept(i)
 }
@@ -216,6 +229,32 @@ func (i *Interpreter) evaluate(expr Expr) (any, error) {
 func (i *Interpreter) execute(stmt Stmt) error {
 	_, err := stmt.Accept(i)
 	return err
+}
+
+func (i *Interpreter) VisitBlock(stmt *BlockStmt) (any, error) {
+	blockEnv := environment.CreateWithEnclosing(i.environment)
+	i.executeBlock(stmt.Statements, blockEnv)
+	return nil, nil
+}
+
+// I hope that we don't run in to any nil here
+func (i *Interpreter) executeBlock(statements []Stmt, blockEnv Environment) error {
+	previous := i.environment
+
+	i.environment = blockEnv
+
+	defer func() {
+		i.environment = previous
+	}()
+
+	for _, stmt := range statements {
+		executeErr := i.execute(stmt)
+		if executeErr != nil {
+			return executeErr
+		}
+	}
+
+	return nil
 }
 
 func isTruthy(value any) bool {
