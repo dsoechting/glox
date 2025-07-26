@@ -29,6 +29,7 @@ var stmtTypes = []string{
 	"If : Condition Expr, ThenBranch Stmt, ElseBranch Stmt",
 	"Print : Expression Expr",
 	"Var : Name token.Token, Initializer Expr",
+	"While : Condition Expr, Body Stmt",
 }
 
 const EXPR string = "Expr"

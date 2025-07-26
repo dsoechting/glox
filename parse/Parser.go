@@ -9,6 +9,7 @@ import (
 
 type Expr = ast.Expr
 type Stmt = ast.Stmt
+type WhileStmt = ast.WhileStmt
 type VarStmt = ast.VarStmt
 type TernaryExpr = ast.TernaryExpr
 type BinaryExpr = ast.BinaryExpr
@@ -71,6 +72,9 @@ func (p *Parser) statement() (Stmt, error) {
 	}
 	if p.match(token.PRINT) {
 		return p.printStatement()
+	}
+	if p.match(token.WHILE) {
+		return p.whileStatement()
 	}
 	if p.match(token.LEFT_BRACE) {
 		blockStmts, blockErr := p.block()
@@ -140,6 +144,37 @@ func (p *Parser) printStatement() (Stmt, error) {
 	return &ast.PrintStmt{
 		Expression: value,
 	}, nil
+}
+
+func (p *Parser) whileStatement() (Stmt, error) {
+
+	_, leftParenErr := p.consume(token.LEFT_PAREN, "Expect '(' after 'while'.")
+	if leftParenErr != nil {
+		return nil, leftParenErr
+	}
+
+	// Condition
+	condition, condErr := p.expression()
+	if condErr != nil {
+		return nil, condErr
+	}
+
+	_, rightParenErr := p.consume(token.RIGHT_PAREN, "Expect ')' after while condition.")
+	if rightParenErr != nil {
+		return nil, rightParenErr
+	}
+
+	// Then branch of code
+	body, bodyErr := p.statement()
+	if bodyErr != nil {
+		return nil, bodyErr
+	}
+
+	return &WhileStmt{
+		Condition: condition,
+		Body:      body,
+	}, nil
+
 }
 
 func (p *Parser) varDeclaration() (Stmt, error) {

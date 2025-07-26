@@ -16,6 +16,7 @@ type Stmt = ast.Stmt
 type ExpressionStmt = ast.ExpressionStmt
 type IfStmt = ast.IfStmt
 type PrintStmt = ast.PrintStmt
+type WhileStmt = ast.WhileStmt
 type VarStmt = ast.VarStmt
 type BlockStmt = ast.BlockStmt
 type Expr = ast.Expr
@@ -70,6 +71,22 @@ func (i *Interpreter) VisitPrint(stmt *PrintStmt) (any, error) {
 	}
 	fmt.Println(stringify(value))
 	//Don't print in REPL
+	return "", nil
+}
+
+func (i *Interpreter) VisitWhile(stmt *WhileStmt) (any, error) {
+	cond, condErr := i.evaluate(stmt.Condition)
+	if condErr != nil {
+		return nil, condErr
+	}
+
+	for isTruthy(cond) {
+		i.execute(stmt.Body)
+		cond, condErr = i.evaluate(stmt.Condition)
+		if condErr != nil {
+			return nil, condErr
+		}
+	}
 	return "", nil
 }
 
