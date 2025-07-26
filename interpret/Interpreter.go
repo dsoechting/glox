@@ -14,6 +14,7 @@ import (
 type Environment = environment.Environment
 type Stmt = ast.Stmt
 type ExpressionStmt = ast.ExpressionStmt
+type IfStmt = ast.IfStmt
 type PrintStmt = ast.PrintStmt
 type VarStmt = ast.VarStmt
 type BlockStmt = ast.BlockStmt
@@ -68,6 +69,19 @@ func (i *Interpreter) VisitPrint(stmt *PrintStmt) (any, error) {
 	}
 	fmt.Println(stringify(value))
 	//Don't print in REPL
+	return "", nil
+}
+
+func (i *Interpreter) VisitIf(stmt *IfStmt) (any, error) {
+	cond, condErr := stmt.Condition.Accept(i)
+	if condErr != nil {
+		return nil, condErr
+	}
+	if isTruthy(cond) {
+		return i.execute(stmt.ThenBranch)
+	} else if stmt.ElseBranch != nil {
+		return i.execute(stmt.ElseBranch)
+	}
 	return "", nil
 }
 

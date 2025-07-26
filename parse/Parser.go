@@ -65,6 +65,9 @@ func (p *Parser) declaration() (Stmt, error) {
 }
 
 func (p *Parser) statement() (Stmt, error) {
+	if p.match(token.IF) {
+		return p.ifStatement()
+	}
 	if p.match(token.PRINT) {
 		return p.printStatement()
 	}
@@ -79,6 +82,47 @@ func (p *Parser) statement() (Stmt, error) {
 		}, nil
 	}
 	return p.expressionStatement()
+}
+
+func (p *Parser) ifStatement() (Stmt, error) {
+
+	_, leftParenErr := p.consume(token.LEFT_PAREN, "Expect '(' after 'if'.")
+	if leftParenErr != nil {
+		return nil, leftParenErr
+	}
+
+	// Condition
+	condition, condErr := p.expression()
+	if condErr != nil {
+		return nil, condErr
+	}
+
+	_, rightParenErr := p.consume(token.RIGHT_PAREN, "Expect ')' after if condition.")
+	if rightParenErr != nil {
+		return nil, rightParenErr
+	}
+
+	// Then branch of code
+	thenBranch, thenBranchErr := p.statement()
+	if thenBranchErr != nil {
+		return nil, thenBranchErr
+	}
+
+	// Else block if present
+	var maybeElseBranch Stmt
+	if p.match(token.ELSE) {
+		elseBranch, elseBranchErr := p.statement()
+		if elseBranchErr != nil {
+			return nil, elseBranchErr
+		}
+		maybeElseBranch = elseBranch
+	}
+	return &ast.IfStmt{
+		Condition:  condition,
+		ThenBranch: thenBranch,
+		// Possibly nil
+		ElseBranch: maybeElseBranch,
+	}, nil
 }
 
 func (p *Parser) printStatement() (Stmt, error) {

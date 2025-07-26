@@ -9,6 +9,7 @@ type Stmt interface {
 type StmtVisitor interface {
 	VisitBlock(stmt *BlockStmt) (any, error)
 	VisitExpression(stmt *ExpressionStmt) (any, error)
+	VisitIf(stmt *IfStmt) (any, error)
 	VisitPrint(stmt *PrintStmt) (any, error)
 	VisitVar(stmt *VarStmt) (any, error)
 }
@@ -27,6 +28,16 @@ type ExpressionStmt struct {
 
 func (e *ExpressionStmt) Accept(visitor StmtVisitor) (any, error) {
 	return visitor.VisitExpression(e)
+}
+
+type IfStmt struct {
+	Condition  Expr
+	ThenBranch Stmt
+	ElseBranch Stmt
+}
+
+func (e *IfStmt) Accept(visitor StmtVisitor) (any, error) {
+	return visitor.VisitIf(e)
 }
 
 type PrintStmt struct {
