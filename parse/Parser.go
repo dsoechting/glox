@@ -12,6 +12,7 @@ type Stmt = ast.Stmt
 type VarStmt = ast.VarStmt
 type TernaryExpr = ast.TernaryExpr
 type BinaryExpr = ast.BinaryExpr
+type LogicalExpr = ast.LogicalExpr
 type UnaryExpr = ast.UnaryExpr
 type LiteralExpr = ast.LiteralExpr
 type GroupingExpr = ast.GroupingExpr
@@ -202,7 +203,6 @@ func (p *Parser) block() ([]Stmt, error) {
 }
 
 func (p *Parser) expression() (Expr, error) {
-	// return p.ternary()
 	return p.assignment()
 }
 
@@ -230,9 +230,9 @@ func (p *Parser) assignment() (Expr, error) {
 }
 
 func (p *Parser) ternary() (Expr, error) {
-	expr, eqErr := p.equality()
-	if eqErr != nil {
-		return nil, eqErr
+	expr, orErr := p.or()
+	if orErr != nil {
+		return nil, orErr
 	}
 
 	if p.match(token.QUESTION) {
@@ -258,6 +258,49 @@ func (p *Parser) ternary() (Expr, error) {
 			Second:   second,
 			Third:    third,
 		}
+	}
+	return expr, nil
+}
+
+func (p *Parser) or() (Expr, error) {
+	expr, andErr := p.and()
+	if andErr != nil {
+		return nil, andErr
+	}
+
+	for p.match(token.OR) {
+		operator := p.previous()
+		rightExpr, rightErr := p.and()
+		if rightErr != nil {
+			return nil, rightErr
+		}
+		expr = &LogicalExpr{
+			Left:     expr,
+			Operator: operator,
+			Right:    rightExpr,
+		}
+	}
+	return expr, nil
+}
+
+func (p *Parser) and() (Expr, error) {
+	expr, exprErr := p.equality()
+	if exprErr != nil {
+		return nil, exprErr
+	}
+
+	for p.match(token.AND) {
+		operator := p.previous()
+		rightExpr, rightErr := p.equality()
+		if rightErr != nil {
+			return nil, rightErr
+		}
+		expr = &LogicalExpr{
+			Left:     expr,
+			Operator: operator,
+			Right:    rightExpr,
+		}
+		return expr, nil
 	}
 	return expr, nil
 }

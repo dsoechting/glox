@@ -7,7 +7,9 @@ if (4 > 11) {
   print d;
   print d;
 } else {
-  print "elseeee";
+  var a = "else statement scope a";
+  print a;
+  "elseeee";
 }
 {
   var a = "outer a";
