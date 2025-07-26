@@ -47,7 +47,10 @@ func (i *Interpreter) Interpret(statements []Stmt) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		sb.WriteString(fmt.Sprintf("%v\n", value))
+		// Do no add new line for empty values
+		if value != "" {
+			sb.WriteString(fmt.Sprintf("%v\n", value))
+		}
 	}
 	// This is going to break my tests :)
 	// Maybe we will modify this later, to make things easier to test
@@ -64,7 +67,8 @@ func (i *Interpreter) VisitPrint(stmt *PrintStmt) (any, error) {
 		return nil, err
 	}
 	fmt.Println(stringify(value))
-	return value, nil
+	//Don't print in REPL
+	return "", nil
 }
 
 func (i *Interpreter) VisitVar(stmt *VarStmt) (any, error) {
@@ -77,7 +81,8 @@ func (i *Interpreter) VisitVar(stmt *VarStmt) (any, error) {
 		}
 	}
 	i.environment.Define(stmt.Name.Lexeme, value)
-	return value, nil
+	// Don't print in REPL
+	return "", nil
 }
 
 func (i *Interpreter) VisitTernary(expr *TernaryExpr) (any, error) {
@@ -222,7 +227,8 @@ func (i *Interpreter) VisitAssign(expr *ast.AssignExpr) (any, error) {
 		return nil, assignErr
 	}
 
-	return value, nil
+	// Don't want my REPL to print assignments
+	return "", nil
 }
 
 func (i *Interpreter) evaluate(expr Expr) (any, error) {
@@ -238,7 +244,6 @@ func (i *Interpreter) VisitBlock(stmt *BlockStmt) (any, error) {
 	return i.executeBlock(stmt.Statements, blockEnv)
 }
 
-// I hope that we don't run in to any nil here
 func (i *Interpreter) executeBlock(statements []Stmt, blockEnv Environment) (any, error) {
 	previous := i.environment
 
