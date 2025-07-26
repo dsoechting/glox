@@ -1,6 +1,7 @@
 var a = "global a";
 var b = "global b";
 var c = "global c";
+var d = 4 > 5 ? "t" : "f";
 {
   var a = "outer a";
   var b = "outer b";
@@ -9,6 +10,7 @@ var c = "global c";
     print a;
     print b;
     print c;
+    print d;
   }
   print a;
   print b;
