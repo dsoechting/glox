@@ -3,21 +3,21 @@ package ast
 import "dsoechting/glox/token"
 
 type Stmt interface {
-	Accept(visitor StmtVisitor) error
+	Accept(visitor StmtVisitor) (any, error)
 }
 
 type StmtVisitor interface {
-	VisitBlock(stmt *BlockStmt) error
-	VisitExpression(stmt *ExpressionStmt) error
-	VisitPrint(stmt *PrintStmt) error
-	VisitVar(stmt *VarStmt) error
+	VisitBlock(stmt *BlockStmt) (any, error)
+	VisitExpression(stmt *ExpressionStmt) (any, error)
+	VisitPrint(stmt *PrintStmt) (any, error)
+	VisitVar(stmt *VarStmt) (any, error)
 }
 
 type BlockStmt struct {
 	Statements []Stmt
 }
 
-func (e *BlockStmt) Accept(visitor StmtVisitor) error {
+func (e *BlockStmt) Accept(visitor StmtVisitor) (any, error) {
 	return visitor.VisitBlock(e)
 }
 
@@ -25,7 +25,7 @@ type ExpressionStmt struct {
 	Expression Expr
 }
 
-func (e *ExpressionStmt) Accept(visitor StmtVisitor) error {
+func (e *ExpressionStmt) Accept(visitor StmtVisitor) (any, error) {
 	return visitor.VisitExpression(e)
 }
 
@@ -33,7 +33,7 @@ type PrintStmt struct {
 	Expression Expr
 }
 
-func (e *PrintStmt) Accept(visitor StmtVisitor) error {
+func (e *PrintStmt) Accept(visitor StmtVisitor) (any, error) {
 	return visitor.VisitPrint(e)
 }
 
@@ -42,6 +42,6 @@ type VarStmt struct {
 	Initializer Expr
 }
 
-func (e *VarStmt) Accept(visitor StmtVisitor) error {
+func (e *VarStmt) Accept(visitor StmtVisitor) (any, error) {
 	return visitor.VisitVar(e)
 }

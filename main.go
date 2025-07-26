@@ -64,17 +64,18 @@ func (g *Glox) runPrompt() error {
 		if line == nil {
 			break
 		}
-		g.run(string(line))
+		value := g.run(string(line))
+		fmt.Printf("%v", value)
 	}
 	return nil
 }
 
-func (g *Glox) run(source string) {
+func (g *Glox) run(source string) any {
 	scanner := scanner.Create(source)
 	tokens, scanErr := scanner.ScanTokens()
 	if scanErr != nil {
 		g.setCompileError(scanErr)
-		return
+		return nil
 	}
 	// scanner.PrintTokens()
 
@@ -83,12 +84,13 @@ func (g *Glox) run(source string) {
 	statements, parseError := parser.Parse()
 	if parseError != nil {
 		g.setCompileError(parseError)
-		return
+		return nil
 	}
-	_, evalErr := g.interpreter.Interpret(statements)
+	evalResult, evalErr := g.interpreter.Interpret(statements)
 	if evalErr != nil {
 		g.setRuntimeError(evalErr)
 	}
+	return evalResult
 }
 
 func (g *Glox) setCompileError(error error) {
