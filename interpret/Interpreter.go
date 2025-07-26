@@ -50,31 +50,31 @@ func (i *Interpreter) Interpret(statements []Stmt) (string, error) {
 	return "", nil
 }
 
-func (i *Interpreter) VisitExpression(stmt *ExpressionStmt) (any, error) {
+func (i *Interpreter) VisitExpression(stmt *ExpressionStmt) error {
 	_, err := i.evaluate(stmt.Expression)
-	return nil, err
+	return err
 }
 
-func (i *Interpreter) VisitPrint(stmt *PrintStmt) (any, error) {
+func (i *Interpreter) VisitPrint(stmt *PrintStmt) error {
 	value, err := i.evaluate(stmt.Expression)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	fmt.Println(stringify(value))
-	return nil, nil
+	return nil
 }
 
-func (i *Interpreter) VisitVar(stmt *VarStmt) (any, error) {
+func (i *Interpreter) VisitVar(stmt *VarStmt) error {
 	var value any
 	var err error
 	if stmt.Initializer != nil {
 		value, err = i.evaluate(stmt.Initializer)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 	i.environment.Define(stmt.Name.Lexeme, value)
-	return nil, nil
+	return nil
 }
 
 func (i *Interpreter) VisitTernary(expr *TernaryExpr) (any, error) {
@@ -227,14 +227,14 @@ func (i *Interpreter) evaluate(expr Expr) (any, error) {
 }
 
 func (i *Interpreter) execute(stmt Stmt) error {
-	_, err := stmt.Accept(i)
+	err := stmt.Accept(i)
 	return err
 }
 
-func (i *Interpreter) VisitBlock(stmt *BlockStmt) (any, error) {
+func (i *Interpreter) VisitBlock(stmt *BlockStmt) error {
 	blockEnv := environment.CreateWithEnclosing(i.environment)
 	i.executeBlock(stmt.Statements, blockEnv)
-	return nil, nil
+	return nil
 }
 
 // I hope that we don't run in to any nil here

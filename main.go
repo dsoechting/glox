@@ -76,15 +76,9 @@ func (g *Glox) run(source string) {
 		g.setCompileError(scanErr)
 		return
 	}
+	// scanner.PrintTokens()
 
-	// Token printing code
-	// for _, token := range tokens {
-	// 	log.Println(token)
-	// }
-
-	// printer := AstPrinter{}
 	parser := parse.Create(tokens)
-	// We need to make this static in the future, I am just hacking this in for now
 
 	statements, parseError := parser.Parse()
 	if parseError != nil {

@@ -4,6 +4,7 @@ import (
 	"dsoechting/glox/error"
 	"dsoechting/glox/token"
 	"fmt"
+	"log"
 	"strconv"
 )
 
@@ -256,4 +257,10 @@ func (s *Scanner) addToken(tokenType token.TokenType, literal any) {
 	text := s.source[s.start:s.current]
 	newToken := token.Create(tokenType, text, literal, s.line)
 	s.tokens = append(s.tokens, *newToken)
+}
+
+func (s *Scanner) PrintTokens() {
+	for _, token := range s.tokens {
+		log.Println(token)
+	}
 }
