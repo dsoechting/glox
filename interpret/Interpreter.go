@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 type Environment = environment.Environment
@@ -39,42 +40,49 @@ func Create() Interpreter {
 }
 
 func (i *Interpreter) Interpret(statements []Stmt) (string, error) {
+	var sb strings.Builder
+
 	for _, statement := range statements {
-		err := i.execute(statement)
+		value, err := i.execute(statement)
 		if err != nil {
 			return "", err
+		}
+		// Do no add new line for empty values
+		if value != "" {
+			sb.WriteString(fmt.Sprintf("%v\n", value))
 		}
 	}
 	// This is going to break my tests :)
 	// Maybe we will modify this later, to make things easier to test
+	return sb.String(), nil
+}
+
+func (i *Interpreter) VisitExpression(stmt *ExpressionStmt) (any, error) {
+	return i.evaluate(stmt.Expression)
+}
+
+func (i *Interpreter) VisitPrint(stmt *PrintStmt) (any, error) {
+	value, err := i.evaluate(stmt.Expression)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(stringify(value))
+	//Don't print in REPL
 	return "", nil
 }
 
-func (i *Interpreter) VisitExpression(stmt *ExpressionStmt) error {
-	_, err := i.evaluate(stmt.Expression)
-	return err
-}
-
-func (i *Interpreter) VisitPrint(stmt *PrintStmt) error {
-	value, err := i.evaluate(stmt.Expression)
-	if err != nil {
-		return err
-	}
-	fmt.Println(stringify(value))
-	return nil
-}
-
-func (i *Interpreter) VisitVar(stmt *VarStmt) error {
+func (i *Interpreter) VisitVar(stmt *VarStmt) (any, error) {
 	var value any
 	var err error
 	if stmt.Initializer != nil {
 		value, err = i.evaluate(stmt.Initializer)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 	i.environment.Define(stmt.Name.Lexeme, value)
-	return nil
+	// Don't print in REPL
+	return "", nil
 }
 
 func (i *Interpreter) VisitTernary(expr *TernaryExpr) (any, error) {
@@ -219,26 +227,24 @@ func (i *Interpreter) VisitAssign(expr *ast.AssignExpr) (any, error) {
 		return nil, assignErr
 	}
 
-	return value, nil
+	// Don't want my REPL to print assignments
+	return "", nil
 }
 
 func (i *Interpreter) evaluate(expr Expr) (any, error) {
 	return expr.Accept(i)
 }
 
-func (i *Interpreter) execute(stmt Stmt) error {
-	err := stmt.Accept(i)
-	return err
+func (i *Interpreter) execute(stmt Stmt) (any, error) {
+	return stmt.Accept(i)
 }
 
-func (i *Interpreter) VisitBlock(stmt *BlockStmt) error {
+func (i *Interpreter) VisitBlock(stmt *BlockStmt) (any, error) {
 	blockEnv := environment.CreateWithEnclosing(i.environment)
-	i.executeBlock(stmt.Statements, blockEnv)
-	return nil
+	return i.executeBlock(stmt.Statements, blockEnv)
 }
 
-// I hope that we don't run in to any nil here
-func (i *Interpreter) executeBlock(statements []Stmt, blockEnv Environment) error {
+func (i *Interpreter) executeBlock(statements []Stmt, blockEnv Environment) (any, error) {
 	previous := i.environment
 
 	i.environment = blockEnv
@@ -247,14 +253,16 @@ func (i *Interpreter) executeBlock(statements []Stmt, blockEnv Environment) erro
 		i.environment = previous
 	}()
 
+	var sb strings.Builder
 	for _, stmt := range statements {
-		executeErr := i.execute(stmt)
+		value, executeErr := i.execute(stmt)
 		if executeErr != nil {
-			return executeErr
+			return nil, executeErr
 		}
+		sb.WriteString(fmt.Sprintf("%v\n", value))
 	}
 
-	return nil
+	return sb.String(), nil
 }
 
 func isTruthy(value any) bool {

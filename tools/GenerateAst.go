@@ -40,7 +40,7 @@ var EXPR_AST = Ast{
 var STMT_AST = Ast{
 	types:       stmtTypes,
 	base_name:   "Stmt",
-	return_type: "error",
+	return_type: "any, error",
 }
 
 func main() {
