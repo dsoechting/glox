@@ -81,7 +81,11 @@ func (i *Interpreter) VisitWhile(stmt *WhileStmt) (any, error) {
 	}
 
 	for isTruthy(cond) {
-		i.execute(stmt.Body)
+		_, error := i.execute(stmt.Body)
+		if error != nil {
+			return nil, error
+		}
+
 		cond, condErr = i.evaluate(stmt.Condition)
 		if condErr != nil {
 			return nil, condErr

@@ -11,6 +11,7 @@ type Expr = ast.Expr
 type Stmt = ast.Stmt
 type WhileStmt = ast.WhileStmt
 type VarStmt = ast.VarStmt
+type ExpressionStmt = ast.ExpressionStmt
 type TernaryExpr = ast.TernaryExpr
 type BinaryExpr = ast.BinaryExpr
 type LogicalExpr = ast.LogicalExpr
@@ -37,7 +38,6 @@ func Create(tokens []token.Token) Parser {
 func (p *Parser) Parse() ([]Stmt, error) {
 	statements := []Stmt{}
 	for !p.isAtEnd() {
-		// stmt, stmtErr := p.statement()
 		stmt, stmtErr := p.declaration()
 		if stmtErr != nil {
 			// Do I want to end parsing here? I might want to keep going
@@ -67,6 +67,9 @@ func (p *Parser) declaration() (Stmt, error) {
 }
 
 func (p *Parser) statement() (Stmt, error) {
+	if p.match(token.FOR) {
+		return p.forStatement()
+	}
 	if p.match(token.IF) {
 		return p.ifStatement()
 	}
@@ -87,6 +90,90 @@ func (p *Parser) statement() (Stmt, error) {
 		}, nil
 	}
 	return p.expressionStatement()
+}
+
+func (p *Parser) forStatement() (Stmt, error) {
+	_, leftParenErr := p.consume(token.LEFT_PAREN, "Expect '(' after 'for',")
+	if leftParenErr != nil {
+		return nil, leftParenErr
+	}
+
+	var initializer Stmt
+	var initializerErr error
+	if p.match(token.SEMICOLON) {
+		initializer = nil
+	} else if p.match(token.VAR) {
+		initializer, initializerErr = p.varDeclaration()
+	} else {
+		initializer, initializerErr = p.expressionStatement()
+	}
+	if initializerErr != nil {
+		return nil, initializerErr
+	}
+
+	var condition Expr
+	var conditionErr error
+	if !p.check(token.SEMICOLON) {
+		condition, conditionErr = p.expression()
+	}
+	if conditionErr != nil {
+		return nil, conditionErr
+	}
+
+	_, semiColonErr := p.consume(token.SEMICOLON, "Expect ';' after loop condition.")
+	if semiColonErr != nil {
+		return nil, semiColonErr
+	}
+
+	var increment Expr
+	var incrementErr error
+	if !p.check(token.RIGHT_PAREN) {
+		increment, incrementErr = p.expression()
+	}
+	if incrementErr != nil {
+		return nil, incrementErr
+	}
+
+	_, rightParenErr := p.consume(token.RIGHT_PAREN, "Expect ')' after for clauses.")
+	if rightParenErr != nil {
+		return nil, rightParenErr
+	}
+
+	body, bodyErr := p.statement()
+	if bodyErr != nil {
+		return nil, bodyErr
+	}
+
+	// Append our incrementer to the end of the body
+	if increment != nil {
+		incrementStmt := &ExpressionStmt{
+			Expression: increment,
+		}
+		body = &ast.BlockStmt{
+			Statements: []Stmt{body, incrementStmt},
+		}
+	}
+
+	if condition == nil {
+		condition = &LiteralExpr{
+			Value: true,
+		}
+	}
+
+	// Make a while loop with our condition and the body (with incrementer)
+	body = &WhileStmt{
+		Condition: condition,
+		Body:      body,
+	}
+
+	// Prepend the body and run the initializer once before the while loop
+	if initializer != nil {
+		body = &ast.BlockStmt{
+			Statements: []Stmt{initializer, body},
+		}
+	}
+
+	return body, nil
 }
 
 func (p *Parser) ifStatement() (Stmt, error) {
@@ -214,7 +301,7 @@ func (p *Parser) expressionStatement() (Stmt, error) {
 		return nil, semiColonErr
 	}
 
-	return &ast.ExpressionStmt{
+	return &ExpressionStmt{
 		Expression: value,
 	}, nil
 }
