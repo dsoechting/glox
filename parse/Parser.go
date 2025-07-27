@@ -9,9 +9,12 @@ import (
 
 type Expr = ast.Expr
 type Stmt = ast.Stmt
+type WhileStmt = ast.WhileStmt
 type VarStmt = ast.VarStmt
+type ExpressionStmt = ast.ExpressionStmt
 type TernaryExpr = ast.TernaryExpr
 type BinaryExpr = ast.BinaryExpr
+type LogicalExpr = ast.LogicalExpr
 type UnaryExpr = ast.UnaryExpr
 type LiteralExpr = ast.LiteralExpr
 type GroupingExpr = ast.GroupingExpr
@@ -35,7 +38,6 @@ func Create(tokens []token.Token) Parser {
 func (p *Parser) Parse() ([]Stmt, error) {
 	statements := []Stmt{}
 	for !p.isAtEnd() {
-		// stmt, stmtErr := p.statement()
 		stmt, stmtErr := p.declaration()
 		if stmtErr != nil {
 			// Do I want to end parsing here? I might want to keep going
@@ -65,8 +67,17 @@ func (p *Parser) declaration() (Stmt, error) {
 }
 
 func (p *Parser) statement() (Stmt, error) {
+	if p.match(token.FOR) {
+		return p.forStatement()
+	}
+	if p.match(token.IF) {
+		return p.ifStatement()
+	}
 	if p.match(token.PRINT) {
 		return p.printStatement()
+	}
+	if p.match(token.WHILE) {
+		return p.whileStatement()
 	}
 	if p.match(token.LEFT_BRACE) {
 		blockStmts, blockErr := p.block()
@@ -79,6 +90,131 @@ func (p *Parser) statement() (Stmt, error) {
 		}, nil
 	}
 	return p.expressionStatement()
+}
+
+func (p *Parser) forStatement() (Stmt, error) {
+	_, leftParenErr := p.consume(token.LEFT_PAREN, "Expect '(' after 'for',")
+	if leftParenErr != nil {
+		return nil, leftParenErr
+	}
+
+	var initializer Stmt
+	var initializerErr error
+	if p.match(token.SEMICOLON) {
+		initializer = nil
+	} else if p.match(token.VAR) {
+		initializer, initializerErr = p.varDeclaration()
+	} else {
+		initializer, initializerErr = p.expressionStatement()
+	}
+	if initializerErr != nil {
+		return nil, initializerErr
+	}
+
+	var condition Expr
+	var conditionErr error
+	if !p.check(token.SEMICOLON) {
+		condition, conditionErr = p.expression()
+	}
+	if conditionErr != nil {
+		return nil, conditionErr
+	}
+
+	_, semiColonErr := p.consume(token.SEMICOLON, "Expect ';' after loop condition.")
+	if semiColonErr != nil {
+		return nil, semiColonErr
+	}
+
+	var increment Expr
+	var incrementErr error
+	if !p.check(token.RIGHT_PAREN) {
+		increment, incrementErr = p.expression()
+	}
+	if incrementErr != nil {
+		return nil, incrementErr
+	}
+
+	_, rightParenErr := p.consume(token.RIGHT_PAREN, "Expect ')' after for clauses.")
+	if rightParenErr != nil {
+		return nil, rightParenErr
+	}
+
+	body, bodyErr := p.statement()
+	if bodyErr != nil {
+		return nil, bodyErr
+	}
+
+	// Append our incrementer to the end of the body
+	if increment != nil {
+		incrementStmt := &ExpressionStmt{
+			Expression: increment,
+		}
+		body = &ast.BlockStmt{
+			Statements: []Stmt{body, incrementStmt},
+		}
+	}
+
+	if condition == nil {
+		condition = &LiteralExpr{
+			Value: true,
+		}
+	}
+
+	// Make a while loop with our condition and the body (with incrementer)
+	body = &WhileStmt{
+		Condition: condition,
+		Body:      body,
+	}
+
+	// Prepend the body and run the initializer once before the while loop
+	if initializer != nil {
+		body = &ast.BlockStmt{
+			Statements: []Stmt{initializer, body},
+		}
+	}
+
+	return body, nil
+}
+
+func (p *Parser) ifStatement() (Stmt, error) {
+
+	_, leftParenErr := p.consume(token.LEFT_PAREN, "Expect '(' after 'if'.")
+	if leftParenErr != nil {
+		return nil, leftParenErr
+	}
+
+	// Condition
+	condition, condErr := p.expression()
+	if condErr != nil {
+		return nil, condErr
+	}
+
+	_, rightParenErr := p.consume(token.RIGHT_PAREN, "Expect ')' after if condition.")
+	if rightParenErr != nil {
+		return nil, rightParenErr
+	}
+
+	// Then branch of code
+	thenBranch, thenBranchErr := p.statement()
+	if thenBranchErr != nil {
+		return nil, thenBranchErr
+	}
+
+	// Else block if present
+	var maybeElseBranch Stmt
+	if p.match(token.ELSE) {
+		elseBranch, elseBranchErr := p.statement()
+		if elseBranchErr != nil {
+			return nil, elseBranchErr
+		}
+		maybeElseBranch = elseBranch
+	}
+	return &ast.IfStmt{
+		Condition:  condition,
+		ThenBranch: thenBranch,
+		// Possibly nil
+		ElseBranch: maybeElseBranch,
+	}, nil
 }
 
 func (p *Parser) printStatement() (Stmt, error) {
@@ -95,6 +231,37 @@ func (p *Parser) printStatement() (Stmt, error) {
 	return &ast.PrintStmt{
 		Expression: value,
 	}, nil
+}
+
+func (p *Parser) whileStatement() (Stmt, error) {
+
+	_, leftParenErr := p.consume(token.LEFT_PAREN, "Expect '(' after 'while'.")
+	if leftParenErr != nil {
+		return nil, leftParenErr
+	}
+
+	// Condition
+	condition, condErr := p.expression()
+	if condErr != nil {
+		return nil, condErr
+	}
+
+	_, rightParenErr := p.consume(token.RIGHT_PAREN, "Expect ')' after while condition.")
+	if rightParenErr != nil {
+		return nil, rightParenErr
+	}
+
+	// Then branch of code
+	body, bodyErr := p.statement()
+	if bodyErr != nil {
+		return nil, bodyErr
+	}
+
+	return &WhileStmt{
+		Condition: condition,
+		Body:      body,
+	}, nil
+
 }
 
 func (p *Parser) varDeclaration() (Stmt, error) {
@@ -134,7 +301,7 @@ func (p *Parser) expressionStatement() (Stmt, error) {
 		return nil, semiColonErr
 	}
 
-	return &ast.ExpressionStmt{
+	return &ExpressionStmt{
 		Expression: value,
 	}, nil
 }
@@ -158,7 +325,6 @@ func (p *Parser) block() ([]Stmt, error) {
 }
 
 func (p *Parser) expression() (Expr, error) {
-	// return p.ternary()
 	return p.assignment()
 }
 
@@ -186,9 +352,9 @@ func (p *Parser) assignment() (Expr, error) {
 }
 
 func (p *Parser) ternary() (Expr, error) {
-	expr, eqErr := p.equality()
-	if eqErr != nil {
-		return nil, eqErr
+	expr, orErr := p.or()
+	if orErr != nil {
+		return nil, orErr
 	}
 
 	if p.match(token.QUESTION) {
@@ -214,6 +380,49 @@ func (p *Parser) ternary() (Expr, error) {
 			Second:   second,
 			Third:    third,
 		}
+	}
+	return expr, nil
+}
+
+func (p *Parser) or() (Expr, error) {
+	expr, andErr := p.and()
+	if andErr != nil {
+		return nil, andErr
+	}
+
+	for p.match(token.OR) {
+		operator := p.previous()
+		rightExpr, rightErr := p.and()
+		if rightErr != nil {
+			return nil, rightErr
+		}
+		expr = &LogicalExpr{
+			Left:     expr,
+			Operator: operator,
+			Right:    rightExpr,
+		}
+	}
+	return expr, nil
+}
+
+func (p *Parser) and() (Expr, error) {
+	expr, exprErr := p.equality()
+	if exprErr != nil {
+		return nil, exprErr
+	}
+
+	for p.match(token.AND) {
+		operator := p.previous()
+		rightExpr, rightErr := p.equality()
+		if rightErr != nil {
+			return nil, rightErr
+		}
+		expr = &LogicalExpr{
+			Left:     expr,
+			Operator: operator,
+			Right:    rightExpr,
+		}
+		return expr, nil
 	}
 	return expr, nil
 }

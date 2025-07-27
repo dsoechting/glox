@@ -18,6 +18,7 @@ var exprTypes = []string{
 	"Binary : Left Expr, Operator token.Token, Right Expr",
 	"Grouping : Expression Expr",
 	"Literal : Value any",
+	"Logical : Left Expr, Operator token.Token, Right Expr",
 	"Unary : Operator token.Token, Right Expr",
 	"Variable : Name token.Token",
 }
@@ -25,8 +26,10 @@ var exprTypes = []string{
 var stmtTypes = []string{
 	"Block : Statements []Stmt",
 	"Expression : Expression Expr",
+	"If : Condition Expr, ThenBranch Stmt, ElseBranch Stmt",
 	"Print : Expression Expr",
 	"Var : Name token.Token, Initializer Expr",
+	"While : Condition Expr, Body Stmt",
 }
 
 const EXPR string = "Expr"

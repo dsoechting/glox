@@ -4,6 +4,7 @@ import (
 	glox_error "dsoechting/glox/error"
 	"dsoechting/glox/token"
 	"fmt"
+	"strings"
 )
 
 type Token = token.Token
@@ -59,8 +60,27 @@ func (e *Environment) Assign(name Token, value any) error {
 		encloseErr := e.enclosing.Assign(name, value)
 		if encloseErr != nil {
 			return encloseErr
+		} else {
+			return nil
 		}
 
 	}
 	return glox_error.Create(name.Line, "", fmt.Sprintf("Undefined variable '%v'.", name.Lexeme))
+}
+
+func (e *Environment) String() string {
+	var sb strings.Builder
+	sb.WriteString("----------")
+	sb.WriteString("Current Env:\n")
+	helper(&sb, e)
+	sb.WriteString("----------")
+	return sb.String()
+}
+
+func helper(sb *strings.Builder, env *Environment) {
+	sb.WriteString(fmt.Sprintln(env.values))
+	if env.enclosing != nil {
+		sb.WriteString("Found Enclosing\n")
+		helper(sb, env.enclosing)
+	}
 }

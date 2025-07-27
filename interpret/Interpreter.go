@@ -14,12 +14,15 @@ import (
 type Environment = environment.Environment
 type Stmt = ast.Stmt
 type ExpressionStmt = ast.ExpressionStmt
+type IfStmt = ast.IfStmt
 type PrintStmt = ast.PrintStmt
+type WhileStmt = ast.WhileStmt
 type VarStmt = ast.VarStmt
 type BlockStmt = ast.BlockStmt
 type Expr = ast.Expr
 type TernaryExpr = ast.TernaryExpr
 type BinaryExpr = ast.BinaryExpr
+type LogicalExpr = ast.LogicalExpr
 type UnaryExpr = ast.UnaryExpr
 type VariableExpr = ast.VariableExpr
 type GroupingExpr = ast.GroupingExpr
@@ -68,6 +71,39 @@ func (i *Interpreter) VisitPrint(stmt *PrintStmt) (any, error) {
 	}
 	fmt.Println(stringify(value))
 	//Don't print in REPL
+	return "", nil
+}
+
+func (i *Interpreter) VisitWhile(stmt *WhileStmt) (any, error) {
+	cond, condErr := i.evaluate(stmt.Condition)
+	if condErr != nil {
+		return nil, condErr
+	}
+
+	for isTruthy(cond) {
+		_, error := i.execute(stmt.Body)
+		if error != nil {
+			return nil, error
+		}
+
+		cond, condErr = i.evaluate(stmt.Condition)
+		if condErr != nil {
+			return nil, condErr
+		}
+	}
+	return "", nil
+}
+
+func (i *Interpreter) VisitIf(stmt *IfStmt) (any, error) {
+	cond, condErr := stmt.Condition.Accept(i)
+	if condErr != nil {
+		return nil, condErr
+	}
+	if isTruthy(cond) {
+		return i.execute(stmt.ThenBranch)
+	} else if stmt.ElseBranch != nil {
+		return i.execute(stmt.ElseBranch)
+	}
 	return "", nil
 }
 
@@ -184,6 +220,24 @@ func (i *Interpreter) VisitGrouping(expr *GroupingExpr) (any, error) {
 
 func (i *Interpreter) VisitLiteral(expr *LiteralExpr) (any, error) {
 	return expr.Value, nil
+}
+
+func (i *Interpreter) VisitLogical(expr *LogicalExpr) (any, error) {
+	left, leftErr := i.evaluate(expr.Left)
+	if leftErr != nil {
+		return nil, leftErr
+	}
+
+	if expr.Operator.TokenType == token.OR {
+		if isTruthy(left) {
+			return left, nil
+		}
+	} else {
+		if !isTruthy(left) {
+			return left, nil
+		}
+	}
+	return i.evaluate(expr.Right)
 }
 
 func (i *Interpreter) VisitUnary(expr *UnaryExpr) (any, error) {
