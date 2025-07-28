@@ -26,19 +26,23 @@ type LogicalExpr = ast.LogicalExpr
 type UnaryExpr = ast.UnaryExpr
 type VariableExpr = ast.VariableExpr
 type GroupingExpr = ast.GroupingExpr
+type CallExpr = ast.CallExpr
 type LiteralExpr = ast.LiteralExpr
 type Token = token.Token
 type GloxError = glox_error.GloxError
 
 // Implements ExprVisitor and StmtVisitor
 type Interpreter struct {
+	globals     Environment
 	environment Environment
 }
 
 func Create() Interpreter {
-	env := environment.Create()
+	globalEnv := environment.Create()
+	globalEnv.Define("clock", &Clock{})
 	return Interpreter{
-		environment: env,
+		globals:     globalEnv,
+		environment: globalEnv,
 	}
 }
 
@@ -212,6 +216,34 @@ func (i *Interpreter) VisitBinary(expr *BinaryExpr) (any, error) {
 		return nil, createInterpreterError(expr.Operator, "Operands must be two numbers or string", left, right)
 	}
 	return nil, fmt.Errorf("Unsupporter binary operator %s\n", expr.Operator.TokenType)
+}
+
+func (i *Interpreter) VisitCall(expr *CallExpr) (any, error) {
+	callee, calleeErr := i.evaluate(expr.Callee)
+	if calleeErr != nil {
+		return nil, calleeErr
+	}
+
+	var args []any
+
+	for _, argument := range expr.Arguments {
+		argResult, argResultErr := i.evaluate(argument)
+		if argResultErr != nil {
+			return nil, argResultErr
+		}
+		args = append(args, argResult)
+	}
+
+	function, castSucceed := callee.(GloxCallable)
+	if !castSucceed {
+		return nil, glox_error.Create(expr.Paren.Line, expr.Paren.Lexeme, "Can only call functions and classes.")
+	}
+
+	if len(args) != function.arity() {
+		errorMessage := fmt.Sprintf("Expected %d arguments but got %d arguments", function.arity(), len(args))
+		return nil, glox_error.Create(expr.Paren.Line, expr.Paren.Lexeme, errorMessage)
+	}
+	return function.call(i, args)
 }
 
 func (i *Interpreter) VisitGrouping(expr *GroupingExpr) (any, error) {

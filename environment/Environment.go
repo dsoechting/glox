@@ -61,6 +61,7 @@ func (e *Environment) Assign(name Token, value any) error {
 		if encloseErr != nil {
 			return encloseErr
 		} else {
+			// We need to end the function if we find the value in the enclosing envs
 			return nil
 		}
 

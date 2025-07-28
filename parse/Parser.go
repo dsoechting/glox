@@ -5,10 +5,12 @@ import (
 	glox_error "dsoechting/glox/error"
 	"dsoechting/glox/token"
 	"fmt"
+	"log"
 )
 
 type Expr = ast.Expr
 type Stmt = ast.Stmt
+type FunctionStmt = ast.FunctionStmt
 type WhileStmt = ast.WhileStmt
 type VarStmt = ast.VarStmt
 type ExpressionStmt = ast.ExpressionStmt
@@ -18,6 +20,7 @@ type LogicalExpr = ast.LogicalExpr
 type UnaryExpr = ast.UnaryExpr
 type LiteralExpr = ast.LiteralExpr
 type GroupingExpr = ast.GroupingExpr
+type CallExpr = ast.CallExpr
 type VariableExpr = ast.VariableExpr
 type TokenType = token.TokenType
 type Token = token.Token
@@ -50,6 +53,12 @@ func (p *Parser) Parse() ([]Stmt, error) {
 }
 
 func (p *Parser) declaration() (Stmt, error) {
+	if p.match(token.FUN) {
+		funcVal, funcErr := p.function("function")
+		if funcErr != nil {
+			return nil, funcErr
+		}
+	}
 	if p.match(token.VAR) {
 		varDecl, err := p.varDeclaration()
 		if err != nil {
@@ -306,6 +315,58 @@ func (p *Parser) expressionStatement() (Stmt, error) {
 	}, nil
 }
 
+func (p *Parser) function(kind string) (*FunctionStmt, error) {
+	name, nameErr := p.consume(token.IDENTIFIER, fmt.Sprintf("Expect %s name\n", kind))
+	if nameErr != nil {
+		return nil, nameErr
+	}
+	_, leftParenErr := p.consume(token.LEFT_PAREN, fmt.Sprintf("Expect '(' after %s name\n", kind))
+	if leftParenErr != nil {
+		return nil, leftParenErr
+	}
+
+	var parameters []Token
+	if !p.check(token.RIGHT_PAREN) {
+		for true {
+			if len(parameters) >= 255 {
+				errMessage := fmt.Sprintf("%s Can't have more than 255 parameters.", p.peek())
+				log.Println(errMessage)
+			}
+
+			identifier, identifierErr := p.consume(token.IDENTIFIER, "Expect a parameter name")
+			if identifierErr != nil {
+				return nil, identifierErr
+			}
+
+			parameters = append(parameters, identifier)
+			if !p.match(token.COMMA) {
+				break
+			}
+
+		}
+	}
+	_, rightParenErr := p.consume(token.RIGHT_PAREN, "Expect ')' after parameters.")
+	if rightParenErr != nil {
+		return nil, rightParenErr
+	}
+
+	_, leftBraceErr := p.consume(token.LEFT_BRACE, fmt.Sprintf("Expect '{' before %s body", kind))
+	if leftBraceErr != nil {
+		return nil, leftBraceErr
+	}
+
+	body, bodyErr := p.block()
+	if bodyErr != nil {
+		return nil, bodyErr
+	}
+
+	return &FunctionStmt{
+		Name:   name,
+		Params: parameters,
+		Body:   body,
+	}, nil
+}
+
 func (p *Parser) block() ([]Stmt, error) {
 	statements := []Stmt{}
 	for !p.check(token.RIGHT_BRACE) && !p.isAtEnd() {
@@ -526,12 +587,59 @@ func (p *Parser) unary() (Expr, error) {
 			Right:    right,
 		}, nil
 	}
-	result, primaryErr := p.primary()
-	if primaryErr != nil {
-		return nil, primaryErr
+	result, callErr := p.call()
+	if callErr != nil {
+		return nil, callErr
 	}
 
 	return result, nil
+}
+
+func (p *Parser) finishCall(callee Expr) (Expr, error) {
+	var args []Expr
+	if !p.check(token.RIGHT_PAREN) {
+		for {
+			expr, exprErr := p.expression()
+			if exprErr != nil {
+				return nil, exprErr
+			}
+			if len(args) >= 255 {
+				log.Printf("%v Can't have more than 255 arguments.", p.peek())
+			}
+			args = append(args, expr)
+			if !p.match(token.COMMA) {
+				break
+			}
+		}
+	}
+	rightParen, rightParenErr := p.consume(token.RIGHT_PAREN, "Expect ')' after arguments.")
+	if rightParenErr != nil {
+		return nil, rightParenErr
+	}
+	return &CallExpr{
+		Callee:    callee,
+		Paren:     rightParen,
+		Arguments: args,
+	}, nil
+}
+
+func (p *Parser) call() (Expr, error) {
+	expr, exprErr := p.primary()
+	if exprErr != nil {
+		return nil, exprErr
+	}
+
+	for true {
+		if p.match(token.LEFT_PAREN) {
+			expr, exprErr = p.finishCall(expr)
+			if exprErr != nil {
+				return nil, exprErr
+			}
+		} else {
+			break
+		}
+	}
+	return expr, nil
 }
 
 func (p *Parser) primary() (Expr, error) {
